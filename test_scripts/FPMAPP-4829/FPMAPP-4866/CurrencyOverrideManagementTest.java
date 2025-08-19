@@ -2,7 +2,7 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-4866
  * Epic: FPMAPP-4829
- * Generated on: 2025-08-18 14:15:54
+ * Generated on: 2025-08-19 06:12:31
  * 
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
@@ -19,8 +19,7 @@ import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class CurrencyOverrideManagementTest {
 
@@ -42,16 +41,16 @@ public class CurrencyOverrideManagementTest {
         WebElement loginButton = driver.findElement(By.id("loginButton"));
 
         usernameField.sendKeys("admin");
-        passwordField.sendKeys("adminPassword");
+        passwordField.sendKeys("admin_password");
         loginButton.click();
 
         // Verify login success
-        assertTrue(wait.until(ExpectedConditions.urlContains("/admin/dashboard")));
+        wait.until(ExpectedConditions.titleContains("Admin Dashboard"));
     }
 
     @Test
     public void testCurrencyOverrideManagement() {
-        // Step 1: Navigate to the currency overrides section
+        // Step 1: Navigate to currency overrides section
         driver.findElement(By.linkText("Currency Overrides")).click();
 
         // Step 2: Enter valid currency code and rate

@@ -2,7 +2,7 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-5417
  * Epic: FPMAPP-5363
- * Generated on: 2025-09-04 16:07:16
+ * Generated on: 2025-09-04 16:16:26
  * 
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
@@ -10,57 +10,54 @@
 
 package com.webapp.fpmapp;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.verify;
-
-import java.time.Duration;
+import com.webapp.fpmapp.controllers.FpmCommonController;
+import com.webapp.fpmapp.controllers.FpmUserProfileController;
+import com.webapp.fpmapp.controllers.FpmDealsheetController;
+import com.webapp.fpmapp.controllers.FpmTravelController;
+import com.webapp.fpmapp.services.CurrencyConvertionController;
+import com.webapp.fpmapp.services.FpmForecastController;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.web.server.LocalServerPort;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import com.webapp.fpmapp.dto.FpmDealsheetController;
-import com.webapp.fpmapp.dto.FpmUserProfileController;
-import com.webapp.fpmapp.services.FpmCommonController;
-import com.webapp.fpmapp.services.FpmForecastController;
-import com.webapp.fpmapp.services.CurrencyConvertionController;
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Integration test to verify correct approval routing based on financial threshold.
- *
- * Preconditions:
- * - Approval workflows and roles with financial thresholds are configured.
- * Test Steps:
- * 1. Submit an approval request with a specific financial amount.
- * 2. Check the assignment of the approval task.
- * 3. Verify assigned approver role matches expected tier.
- *
- * Expected Results:
- * - Approval request routed to correct approver.
- * - No other approvers outside threshold receive task.
- * - Workflow reflects correct approver assignment.
- */
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
-@ExtendWith({SpringExtension.class, MockitoExtension.class})
-@ActiveProfiles("test")
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+
+import org.springframework.web.client.RestTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
+
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ExtendWith(SpringExtension.class)
 public class ApprovalRoutingIntegrationTest {
+
+    @LocalServerPort
+    private int port;
 
     private static WebDriver driver;
 
@@ -68,108 +65,153 @@ public class ApprovalRoutingIntegrationTest {
     private FpmCommonController fpmCommonController;
 
     @MockBean
-    private FpmForecastController fpmForecastController;
+    private FpmUserProfileController fpmUserProfileController;
 
     @MockBean
     private CurrencyConvertionController currencyConvertionController;
 
     @MockBean
-    private FpmUserProfileController fpmUserProfileController;
+    private FpmForecastController fpmForecastController;
 
     @MockBean
     private FpmDealsheetController fpmDealsheetController;
 
-    private static final String BASE_URL = "http://localhost:8080";
+    @MockBean
+    private FpmTravelController fpmTravelController;
+
+    private static final String BASE_URL = "http://localhost:";
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeAll
-    public static void setUp() {
-        // Setup ChromeDriver for Selenium
-        System.setProperty("webdriver.chrome.driver", "/usr/local/bin/chromedriver");
+    public static void setupClass() {
+        // Setup ChromeDriver path accordingly if needed, or use WebDriverManager
+        // Example: WebDriverManager.chromedriver().setup();
+
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--headless");
         options.addArguments("--disable-gpu");
         options.addArguments("--window-size=1920,1080");
+        options.addArguments("--no-sandbox");
         driver = new ChromeDriver(options);
         driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
     }
 
     @AfterAll
-    public static void tearDown() {
-        if (driver != null) {
+    public static void tearDownClass() {
+        if(driver != null) {
             driver.quit();
         }
     }
 
+    @BeforeEach
+    public void initMocks() {
+        // Mock FpmCommonController to simulate role-based approval routing logic
+        // Example roles and thresholds
+        // Tier 1 Approver: approves amounts <= 10000
+        // Tier 2 Approver: approves amounts > 10000 and <= 50000
+        // Tier 3 Approver: approves amounts > 50000
+
+        Mockito.when(fpmCommonController.getApproverForAmount(10000.0))
+            .thenReturn(new User("tier1Approver", "Tier1ApproverRole"));
+
+        Mockito.when(fpmCommonController.getApproverForAmount(30000.0))
+            .thenReturn(new User("tier2Approver", "Tier2ApproverRole"));
+
+        Mockito.when(fpmCommonController.getApproverForAmount(75000.0))
+            .thenReturn(new User("tier3Approver", "Tier3ApproverRole"));
+
+        // Mock UserProfileController to get user details
+        Mockito.when(fpmUserProfileController.getUserByUsername("tier1Approver"))
+            .thenReturn(new User("tier1Approver", "Tier1ApproverRole"));
+        Mockito.when(fpmUserProfileController.getUserByUsername("tier2Approver"))
+            .thenReturn(new User("tier2Approver", "Tier2ApproverRole"));
+        Mockito.when(fpmUserProfileController.getUserByUsername("tier3Approver"))
+            .thenReturn(new User("tier3Approver", "Tier3ApproverRole"));
+    }
+
     @Test
-    public void testApprovalRoutingBasedOnFinancialThreshold() throws InterruptedException {
-        // Arrange
-        final double submittedAmount = 150000.00; // amount which falls between mid-tier approver thresholds
-        final String requestId = "REQ-1001";
-        final String expectedApproverRole = "MID_TIER_APPROVER";
-        final String expectedApproverUsername = "approver_mid_tier";
+    public void testApprovalRoutingToCorrectApproverTier1() throws JsonProcessingException {
+        double amount = 8000.0; // falls in tier 1
+        String expectedApproverRole = "Tier1ApproverRole";
 
-        // Mock user and roles
-        User approverUser = new User();
-        approverUser.setUsername(expectedApproverUsername);
-        approverUser.setRole(expectedApproverRole);
+        submitApprovalRequestAndVerify(amount, expectedApproverRole);
+    }
 
-        // Mock behavior of backend services
-        given(fpmCommonController.getApproverByFinancialThreshold(eq(submittedAmount))).willReturn(approverUser);
-        given(fpmCommonController.submitApprovalRequest(any(User.class), eq(submittedAmount))).willReturn(requestId);
-        given(fpmCommonController.getTaskAssignment(requestId)).willReturn(approverUser);
+    @Test
+    public void testApprovalRoutingToCorrectApproverTier2() throws JsonProcessingException {
+        double amount = 30000.0; // falls in tier 2
+        String expectedApproverRole = "Tier2ApproverRole";
 
-        // Act
-        driver.get(BASE_URL + "/login");
+        submitApprovalRequestAndVerify(amount, expectedApproverRole);
+    }
 
-        // Login as a requester user
-        WebElement usernameInput = driver.findElement(By.id("username"));
-        WebElement passwordInput = driver.findElement(By.id("password"));
-        WebElement loginButton = driver.findElement(By.id("loginBtn"));
+    @Test
+    public void testApprovalRoutingToCorrectApproverTier3() throws JsonProcessingException {
+        double amount = 60000.0; // falls in tier 3
+        String expectedApproverRole = "Tier3ApproverRole";
 
-        usernameInput.sendKeys("requester_user");
-        passwordInput.sendKeys("SecurePass123");
-        loginButton.click();
+        submitApprovalRequestAndVerify(amount, expectedApproverRole);
+    }
 
-        // Wait for redirect to dashboard
-        Thread.sleep(2000);
+    private void submitApprovalRequestAndVerify(double amount, String expectedApproverRole) throws JsonProcessingException {
+        // For real integration, we might hit REST endpoint to submit approval request
+        // Here for demonstration, we'll mimic form submission via WebDriver
 
-        // Navigate to approval submission page
-        driver.get(BASE_URL + "/approval/submit");
+        String url = BASE_URL + port + "/approval/request/submit";
 
+        // Navigate to approval request submission page
+        driver.get(url);
+
+        // Fill financial amount
         WebElement amountInput = driver.findElement(By.id("amount"));
-        WebElement submitBtn = driver.findElement(By.id("submitApproval"));
+        amountInput.clear();
+        amountInput.sendKeys(String.valueOf(amount));
 
-        amountInput.sendKeys(String.valueOf(submittedAmount));
-        submitBtn.click();
+        // Submit the form
+        WebElement submitButton = driver.findElement(By.id("submitApprovalRequest"));
+        submitButton.click();
 
-        // Wait for submission processing
-        Thread.sleep(2000);
+        // After submission, page displays assigned approver details
+        WebElement approverUsernameElement = driver.findElement(By.id("approverUsername"));
+        WebElement approverRoleElement = driver.findElement(By.id("approverRole"));
 
-        // Verify if redirected to confirmation page showing request ID
-        WebElement confirmationText = driver.findElement(By.id("confirmationMessage"));
-        assertThat(confirmationText.getText()).contains("Request submitted successfully");
-        assertThat(confirmationText.getText()).contains(requestId);
+        String assignedApproverUsername = approverUsernameElement.getText();
+        String assignedApproverRole = approverRoleElement.getText();
 
-        // Simulate task assignment check via UI
-        driver.get(BASE_URL + "/approval/tasks/" + requestId);
+        // Assertions
+        assertThat(assignedApproverRole)
+            .withFailMessage("Approver role should be '%s' but was '%s'", expectedApproverRole, assignedApproverRole)
+            .isEqualTo(expectedApproverRole);
 
-        WebElement assignedApproverElem = driver.findElement(By.id("assignedApprover"));
-        WebElement approverRoleElem = driver.findElement(By.id("approverRole"));
+        // Additional check: Only expected approver assigned
+        // For this demo, assume hidden element tracking assigned tasks count
+        WebElement assignedTasksCountElement = driver.findElement(By.id("assignedTasksCount"));
+        int assignedTasksCount = Integer.parseInt(assignedTasksCountElement.getText());
 
-        String assignedApprover = assignedApproverElem.getText();
-        String approverRole = approverRoleElem.getText();
+        assertThat(assignedTasksCount)
+            .withFailMessage("Only one approver should have been assigned the task, but task count was %d", assignedTasksCount)
+            .isEqualTo(1);
+    }
 
-        // Assert
-        assertThat(assignedApprover).isEqualTo(expectedApproverUsername);
-        assertThat(approverRole).isEqualTo(expectedApproverRole);
+    // Dummy User entity definition for mocking purpose
+    public static class User {
+        private String username;
+        private String role;
 
-        // Additional backend assertion to ensure no other approvers assigned
-        User assignment = fpmCommonController.getTaskAssignment(requestId);
-        assertThat(assignment).isNotNull();
-        assertThat(assignment.getUsername()).isEqualTo(expectedApproverUsername);
-        assertThat(assignment.getRole()).isEqualTo(expectedApproverRole);
+        public User(String username, String role) {
+            this.username = username;
+            this.role = role;
+        }
 
-        // Verify that submitApprovalRequest was called once
-        verify(fpmCommonController).submitApprovalRequest(any(User.class), eq(submittedAmount));
+        public String getUsername() {
+            return username;
+        }
+
+        public String getRole() {
+            return role;
+        }
+
+        // equals and hashCode can be overridden if needed
     }
 }

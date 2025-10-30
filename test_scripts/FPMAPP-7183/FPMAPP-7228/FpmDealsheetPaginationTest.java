@@ -2,7 +2,7 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-7228
  * Epic: FPMAPP-7183
- * Generated on: 2025-10-30 17:59:01
+ * Generated on: 2025-10-30 17:59:03
  * 
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
@@ -65,8 +65,6 @@ public class FpmDealsheetPaginationTest {
 
     @AfterEach
     public void tearDown() {
-        if (driver != null) {
-            driver.quit();
-        }
+        driver.quit();
     }
 }

@@ -2,7 +2,7 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-7229
  * Epic: FPMAPP-7183
- * Generated on: 2025-10-30 17:58:38
+ * Generated on: 2025-10-30 17:58:43
  * 
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
@@ -37,30 +37,32 @@ public class CurrencyFilterTest {
     @Test
     public void testCurrencyFilter() {
         // Step 1: Navigate to transaction history page
-        wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("currencyFilter")));
+        WebElement currencyFilter = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("currencyFilter")));
+        currencyFilter.click();
 
         // Step 2: Use the currency filter to select "INR to JPY"
-        WebElement currencyFilter = driver.findElement(By.id("currencyFilter"));
-        currencyFilter.click();
-        WebElement inrToJpyOption = driver.findElement(By.xpath("//option[text()='INR to JPY']"));
+        WebElement inrToJpyOption = wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath("//option[text()='INR to JPY']")));
         inrToJpyOption.click();
 
-        // Wait for the results to load
-        wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("transactionResults")));
+        // Apply filter
+        WebElement applyFilterButton = driver.findElement(By.id("applyFilterButton"));
+        applyFilterButton.click();
 
-        // Assert that only INR to JPY conversions are displayed
-        WebElement resultsContainer = driver.findElement(By.id("transactionResults"));
-        String resultsText = resultsContainer.getText();
+        // Verify results
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("transactionList")));
+        List<WebElement> transactions = driver.findElements(By.className("transaction-item"));
 
-        assertTrue(resultsText.contains("INR to JPY"), "INR to JPY conversions should be displayed");
-        assertFalse(resultsText.contains("INR to USD"), "INR to USD conversions should not be displayed");
-        assertFalse(resultsText.contains("INR to EUR"), "INR to EUR conversions should not be displayed");
+        for (WebElement transaction : transactions) {
+            String transactionText = transaction.getText();
+            assertTrue(transactionText.contains("INR to JPY"), "Transaction does not match the filter: " + transactionText);
+        }
+
+        // Ensure no other currency pairs are displayed
+        assertEquals(transactions.size(), 5, "Expected 5 transactions for INR to JPY"); // Adjust based on expected count
     }
 
     @AfterEach
     public void tearDown() {
-        if (driver != null) {
-            driver.quit();
-        }
+        driver.quit();
     }
 }

@@ -2,7 +2,7 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-7227
  * Epic: FPMAPP-7183
- * Generated on: 2025-10-30 17:59:31
+ * Generated on: 2025-11-05 11:07:02
  * 
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
@@ -10,59 +10,66 @@
 
 package com.webapp.fpmapp;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.mockito.Mockito;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnitRunner;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
-import org.junit.jupiter.api.extension.ExtendWith;
-import static org.mockito.Mockito.*;
-import static org.junit.jupiter.api.Assertions.*;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.junit4.SpringRunner;
 
-@ExtendWith(SpringExtension.class)
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 @SpringBootTest
+@RunWith(MockitoJUnitRunner.class)
 public class FpmDealsheetControllerTest {
 
     private WebDriver driver;
 
-    @MockBean
-    private FpmCommonController fpmCommonController;
+    @Mock
+    private CurrencyConvertionController currencyConvertionController;
 
-    @BeforeEach
+    @InjectMocks
+    private FpmDealsheetController fpmDealsheetController;
+
+    @Before
     public void setUp() {
         System.setProperty("webdriver.chrome.driver", "path/to/chromedriver");
         driver = new ChromeDriver();
-        // Mocking the service response
-        when(fpmCommonController.getTransactionHistory(anyString())).thenReturn(new ArrayList<>());
+        driver.get("http://localhost:8080/fpm/list");
     }
 
     @Test
-    public void testNoInrToJpyTransactions() {
-        driver.get("http://localhost:8080/transaction-history");
+    @Rollback
+    public void testNoInrToJpyConversionsExist() {
+        // Mocking service call response
+        Mockito.when(currencyConvertionController.getCurrentConversions()).thenReturn(new ArrayList<>());
 
-        // Filter for INR to JPY conversion
-        WebElement filterDropdown = driver.findElement(By.id("currencyFilter"));
-        filterDropdown.sendKeys("INR to JPY");
+        WebElement filterInput = driver.findElement(By.id("currencyFilter"));
+        filterInput.sendKeys("INR to JPY");
+
         WebElement filterButton = driver.findElement(By.id("filterButton"));
         filterButton.click();
 
-        // Check for the message
-        WebElement messageElement = driver.findElement(By.id("noTransactionsMessage"));
-        String message = messageElement.getText();
-        assertEquals("No INR to JPY transactions found", message);
+        WebDriverWait wait = new WebDriverWait(driver, 10);
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("noResultsMessage")));
 
-        // Ensure no unrelated transactions are shown
-        WebElement transactionList = driver.findElement(By.id("transactionList"));
-        assertTrue(transactionList.getText().isEmpty(), "Transaction list should be empty");
+        WebElement noResultsMessage = driver.findElement(By.id("noResultsMessage"));
+        assertEquals("No INR to JPY transactions found", noResultsMessage.getText());
+        assertTrue(driver.findElements(By.className("transactionRow")).isEmpty());
     }
 
-    @AfterEach
+    @After
     public void tearDown() {
         driver.quit();
     }

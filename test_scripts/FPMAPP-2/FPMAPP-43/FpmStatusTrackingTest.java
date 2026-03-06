@@ -2,7 +2,7 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-43
  * Epic: FPMAPP-2
- * Generated on: 2026-03-06 12:30:16
+ * Generated on: 2026-03-06 12:48:01
  * 
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Duration;
 
 public class FpmStatusTrackingTest {
-
     private WebDriver driver;
     private WebDriverWait wait;
 
@@ -38,21 +37,21 @@ public class FpmStatusTrackingTest {
     }
 
     @Test
-    public void testStatusUpdate() throws InterruptedException {
+    public void testStatusUpdateVisibility() {
         // Simulate a request submission
-        WebElement submitButton = wait.until(ExpectedConditions.elementToBeClickable(By.id("submitRequestButton")));
+        WebElement submitButton = driver.findElement(By.id("submitRequestButton"));
         submitButton.click();
 
         // Wait for a status change to occur in the backend
-        // This would typically be done via a mock service or a real backend update
-        Thread.sleep(5000); // Simulate waiting for backend processing
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("statusMessage")));
 
-        // Check the status displayed on the UI
-        WebElement statusElement = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("statusDisplay")));
-        String statusText = statusElement.getText();
+        // Observe the status displayed on the UI
+        WebElement statusMessage = driver.findElement(By.id("statusMessage"));
+        String updatedStatus = statusMessage.getText();
 
         // Assert that the status is updated correctly
-        assertTrue(statusText.equals("Approved") || statusText.equals("Rejected"), "Status should be updated to Approved or Rejected");
+        assertTrue(updatedStatus.equals("Approved") || updatedStatus.equals("Rejected"),
+                "Status should be either Approved or Rejected");
     }
 
     @AfterEach

@@ -2,7 +2,7 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-40
  * Epic: FPMAPP-2
- * Generated on: 2026-03-06 12:29:28
+ * Generated on: 2026-03-06 12:47:09
  * 
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
@@ -35,7 +35,7 @@ public class DealSheetApprovalTest {
     }
 
     private void loginAsStaffMember() {
-        WebElement usernameField = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("username")));
+        WebElement usernameField = driver.findElement(By.id("username"));
         WebElement passwordField = driver.findElement(By.id("password"));
         WebElement loginButton = driver.findElement(By.id("loginButton"));
 
@@ -45,7 +45,7 @@ public class DealSheetApprovalTest {
     }
 
     @Test
-    public void testDenialOfDealSheetApprovalByUnauthorizedUser() {
+    public void testDenialOfDealSheetApproval() {
         navigateToDealSheetApproval();
         selectPendingDealSheet();
         clickApproveButton();
@@ -58,17 +58,17 @@ public class DealSheetApprovalTest {
     }
 
     private void navigateToDealSheetApproval() {
-        WebElement dealSheetApprovalLink = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("dealSheetApprovalLink")));
+        WebElement dealSheetApprovalLink = driver.findElement(By.id("dealSheetApprovalLink"));
         dealSheetApprovalLink.click();
     }
 
     private void selectPendingDealSheet() {
-        WebElement pendingDealSheet = wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(".pending-deal-sheet")));
+        WebElement pendingDealSheet = driver.findElement(By.xpath("//tr[contains(@class, 'pending')]//td[contains(text(), 'Deal Sheet 1')]"));
         pendingDealSheet.click();
     }
 
     private void clickApproveButton() {
-        WebElement approveButton = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("approveButton")));
+        WebElement approveButton = driver.findElement(By.id("approveButton"));
         approveButton.click();
     }
 

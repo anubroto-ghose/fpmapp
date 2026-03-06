@@ -2,7 +2,7 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-39
  * Epic: FPMAPP-2
- * Generated on: 2026-03-06 12:29:12
+ * Generated on: 2026-03-06 12:46:50
  * 
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
@@ -37,13 +37,15 @@ public class DealSheetApprovalTest {
     }
 
     private void loginAsFinancialManager() {
-        WebElement usernameField = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("username")));
+        WebElement usernameField = driver.findElement(By.id("username"));
         WebElement passwordField = driver.findElement(By.id("password"));
         WebElement loginButton = driver.findElement(By.id("loginButton"));
 
         usernameField.sendKeys("financial_manager");
         passwordField.sendKeys("password123");
         loginButton.click();
+
+        wait.until(ExpectedConditions.urlContains("/dashboard"));
     }
 
     @Test
@@ -51,31 +53,28 @@ public class DealSheetApprovalTest {
         navigateToDealSheetApproval();
         selectPendingDealSheet();
         approveDealSheet();
-        verifyApprovalSuccess();
+
+        String statusMessage = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("statusMessage"))).getText();
+        assertEquals("Deal sheet approved successfully!", statusMessage);
+
+        String dealSheetStatus = driver.findElement(By.id("dealSheetStatus")).getText();
+        assertEquals("Approved", dealSheetStatus);
     }
 
     private void navigateToDealSheetApproval() {
-        WebElement approvalSection = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("dealSheetApprovalSection")));
+        WebElement approvalSection = driver.findElement(By.id("dealSheetApprovalSection"));
         approvalSection.click();
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("pendingDealSheets")));
     }
 
     private void selectPendingDealSheet() {
-        WebElement pendingDealSheet = wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(".pending-deal-sheet")));
+        WebElement pendingDealSheet = driver.findElement(By.xpath("//div[@class='dealSheet' and @data-status='Pending'][1]"));
         pendingDealSheet.click();
     }
 
     private void approveDealSheet() {
-        WebElement approveButton = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("approveButton")));
+        WebElement approveButton = driver.findElement(By.id("approveButton"));
         approveButton.click();
-    }
-
-    private void verifyApprovalSuccess() {
-        WebElement confirmationMessage = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("confirmationMessage")));
-        assertTrue(confirmationMessage.isDisplayed(), "Confirmation message should be displayed.");
-        assertEquals("Deal sheet approved successfully!", confirmationMessage.getText());
-
-        WebElement dealSheetStatus = driver.findElement(By.id("dealSheetStatus"));
-        assertEquals("Approved", dealSheetStatus.getText(), "Deal sheet status should be 'Approved'.");
     }
 
     @AfterEach

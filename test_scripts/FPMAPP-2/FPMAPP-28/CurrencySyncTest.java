@@ -2,7 +2,7 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-28
  * Epic: FPMAPP-2
- * Generated on: 2026-03-06 12:26:12
+ * Generated on: 2026-03-06 12:43:37
  * 
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
@@ -21,8 +21,6 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.time.Duration;
-
 public class CurrencySyncTest {
     private WebDriver driver;
     private WebDriverWait wait;
@@ -31,7 +29,7 @@ public class CurrencySyncTest {
     public void setUp() {
         System.setProperty("webdriver.chrome.driver", "path/to/chromedriver");
         driver = new ChromeDriver();
-        wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        wait = new WebDriverWait(driver, 10);
         driver.get("http://localhost:8080/login");
         login();
     }
@@ -50,10 +48,10 @@ public class CurrencySyncTest {
     public void testAutoSyncCurrencyRates() throws InterruptedException {
         // Step 1: Set the auto-sync interval to 30 minutes
         driver.get("http://localhost:8080/settings");
-        WebElement syncIntervalField = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("syncInterval")));
-        syncIntervalField.clear();
-        syncIntervalField.sendKeys("30");
-        WebElement saveButton = driver.findElement(By.id("saveButton"));
+        WebElement intervalField = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("autoSyncInterval")));
+        intervalField.clear();
+        intervalField.sendKeys("30");
+        WebElement saveButton = driver.findElement(By.id("saveSettings"));
         saveButton.click();
 
         // Step 2: Wait for the sync to occur
@@ -64,7 +62,7 @@ public class CurrencySyncTest {
         WebElement currencyRateElement = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("currencyRate")));
         String currencyRate = currencyRateElement.getText();
 
-        // Expected Results: Currency rates are updated automatically at the defined interval
+        // Expected Results: Currency rates are updated automatically at the defined interval.
         assertTrue(currencyRate != null && !currencyRate.isEmpty(), "Currency rates should be updated.");
     }
 

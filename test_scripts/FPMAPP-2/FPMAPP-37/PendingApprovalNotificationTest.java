@@ -2,7 +2,7 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-37
  * Epic: FPMAPP-2
- * Generated on: 2026-03-06 12:28:39
+ * Generated on: 2026-03-06 12:46:15
  * 
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
@@ -21,8 +21,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SpringJUnitConfig
 @SpringBootTest
+@SpringJUnitConfig
 public class PendingApprovalNotificationTest {
 
     private WebDriver driver;
@@ -32,10 +32,10 @@ public class PendingApprovalNotificationTest {
         System.setProperty("webdriver.chrome.driver", "path/to/chromedriver");
         driver = new ChromeDriver();
         driver.get("http://localhost:8080/login");
-        login();
+        loginAsUser();
     }
 
-    private void login() {
+    private void loginAsUser() {
         WebElement usernameField = driver.findElement(By.id("username"));
         WebElement passwordField = driver.findElement(By.id("password"));
         WebElement loginButton = driver.findElement(By.id("loginButton"));
@@ -49,9 +49,10 @@ public class PendingApprovalNotificationTest {
     public void testPendingApprovalNotification() {
         driver.get("http://localhost:8080/notifications");
         WebElement notificationSection = driver.findElement(By.id("notificationSection"));
-        boolean hasPendingApproval = notificationSection.getText().contains("Pending Approval Request");
+        String notificationText = notificationSection.getText();
 
-        assertTrue(hasPendingApproval, "Expected a pending approval notification to be displayed.");
+        assertTrue(notificationText.contains("You have pending approval requests"),
+                "Expected notification for pending approvals not found.");
     }
 
     @AfterEach

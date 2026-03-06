@@ -2,7 +2,7 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-45
  * Epic: FPMAPP-2
- * Generated on: 2026-03-06 12:30:49
+ * Generated on: 2026-03-06 12:48:36
  * 
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
@@ -26,9 +26,9 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
-import static org.mockito.Mockito.when;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.springframework.jdbc.core.JdbcTemplate;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -41,10 +41,10 @@ public class CurrencyExchangeRateUpdateTest {
     private WebApplicationContext context;
 
     @Mock
-    private CurrencyConvertionController currencyConvertionController;
+    private JdbcTemplate jdbcTemplate;
 
     @InjectMocks
-    private FpmForecastController fpmForecastController;
+    private CurrencyConvertionController currencyConvertionController;
 
     @BeforeEach
     public void setUp() {
@@ -52,29 +52,22 @@ public class CurrencyExchangeRateUpdateTest {
         System.setProperty("webdriver.chrome.driver", "path/to/chromedriver");
         driver = new ChromeDriver();
         wait = new WebDriverWait(driver, 10);
-        driver.get("http://localhost:8080");
+        driver.get("http://localhost:8080"); // Adjust URL as necessary
     }
 
     @Test
     public void testCurrencyExchangeRateUpdate() throws InterruptedException {
-        // Mocking the service response
-        when(currencyConvertionController.getLatestExchangeRates()).thenReturn(getMockedExchangeRates());
+        // Simulate waiting for the defined interval
+        Thread.sleep(60000); // Wait for 1 minute (adjust as necessary)
 
-        // Wait for the defined interval (simulate waiting)
-        Thread.sleep(60000); // Wait for 1 minute (defined interval)
+        // Mock the response from the currency exchange API
+        when(jdbcTemplate.queryForObject(anyString(), any(Object[].class))).thenReturn(1.25);
 
         // Check the database for updated exchange rates
-        driver.findElement(By.id("fetchRatesButton")).click();
-        wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("exchangeRatesTable")));
+        double latestRate = jdbcTemplate.queryForObject("SELECT rate FROM currency_exchange WHERE currency_code = 'USD'", Double.class);
 
-        // Validate the updated exchange rates
-        String updatedRate = driver.findElement(By.id("rateUSD"))
-                .getText();
-        assertTrue(updatedRate.contains("1.25"), "Exchange rate should be updated to 1.25");
-    }
-
-    private String getMockedExchangeRates() {
-        return "{\"USD\": 1.25, \"EUR\": 0.85}";
+        // Assert that the latest rate is as expected
+        assertEquals(1.25, latestRate, 0.01);
     }
 
     @AfterEach

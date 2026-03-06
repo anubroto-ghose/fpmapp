@@ -2,7 +2,7 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-33
  * Epic: FPMAPP-2
- * Generated on: 2026-03-06 12:27:39
+ * Generated on: 2026-03-06 12:45:08
  * 
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
@@ -17,61 +17,43 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
-import org.mockito.Mockito;
-import static org.mockito.Mockito.when;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest
 public class ApprovalLoggingTest {
-
     private WebDriver driver;
-
-    @MockBean
-    private FpmCommonController fpmCommonController;
+    private WebDriverWait wait;
 
     @BeforeEach
     public void setUp() {
         System.setProperty("webdriver.chrome.driver", "path/to/chromedriver");
         driver = new ChromeDriver();
+        wait = new WebDriverWait(driver, 10);
         driver.get("http://localhost:8080/login");
     }
 
     @Test
-    public void testApprovalLogging() throws InterruptedException {
-        // Mocking the service response
-        when(fpmCommonController.getUserDetails(Mockito.anyLong())).thenReturn(new User(1L, "testuser", "testuser@example.com"));
-
+    public void testApprovalLogging() {
         // Step 1: Log in as an authorized user
-        WebElement usernameField = driver.findElement(By.id("username"));
+        WebElement usernameField = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("username")));
         WebElement passwordField = driver.findElement(By.id("password"));
         WebElement loginButton = driver.findElement(By.id("loginButton"));
 
-        usernameField.sendKeys("testuser");
-        passwordField.sendKeys("password");
+        usernameField.sendKeys("authorizedUser");
+        passwordField.sendKeys("password123");
         loginButton.click();
 
-        // Wait for login to complete
-        Thread.sleep(2000);
-
         // Step 2: Approve a request
-        WebElement approveButton = driver.findElement(By.id("approveButton"));
-        approveButton.click();
-
-        // Wait for approval to be processed
-        Thread.sleep(2000);
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("approveRequestButton"))).click();
 
         // Step 3: Check the audit log for the approval entry
         driver.get("http://localhost:8080/audit-log");
-        WebElement auditLogEntry = driver.findElement(By.xpath("//tr[td[contains(text(), 'Approved')]]"));
+        WebElement auditLogEntry = wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath("//tr[td[contains(text(), 'approved')]]")));
 
-        // Assertions
-        assertNotNull(auditLogEntry, "Audit log entry should exist.");
-        assertTrue(auditLogEntry.getText().contains("testuser"), "Audit log should contain user details.");
-        assertTrue(auditLogEntry.getText().contains("Approved"), "Audit log should contain approval action.");
+        assertNotNull(auditLogEntry, "Audit log entry for approval should be present.");
+        assertTrue(auditLogEntry.getText().contains("authorizedUser"), "Audit log should contain user details.");
+        assertTrue(auditLogEntry.getText().contains("approved"), "Audit log should contain approval status.");
     }
 
     @AfterEach

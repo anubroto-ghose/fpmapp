@@ -2,7 +2,7 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-29
  * Epic: FPMAPP-2
- * Generated on: 2026-03-06 12:26:30
+ * Generated on: 2026-03-06 12:43:57
  * 
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
@@ -51,24 +51,26 @@ public class CurrencyRateManagementTest {
         driver.get("http://localhost:8080/currency-rates");
 
         // Identify an incorrect currency rate
-        WebElement incorrectRate = wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath("//tr[td[contains(text(), 'USD')]]/td[2]")));
+        WebElement incorrectRate = wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath("//tr[td[text()='USD']]/td[@class='rate']")));
         String originalRate = incorrectRate.getText();
 
         // Use the admin override option to correct the rate
-        WebElement overrideButton = driver.findElement(By.xpath("//tr[td[contains(text(), 'USD')]]//button[contains(text(), 'Override')]"));
+        WebElement overrideButton = driver.findElement(By.xpath("//tr[td[text()='USD']]/td/button[@class='override']"));
         overrideButton.click();
 
         WebElement newRateField = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("newRate")));
         newRateField.clear();
-        newRateField.sendKeys("1.10"); // Correcting the rate
+        newRateField.sendKeys("1.25"); // Correcting the rate
 
         WebElement saveButton = driver.findElement(By.id("saveButton"));
         saveButton.click();
 
         // Verify the currency rate is updated
-        wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("successMessage")));
-        WebElement updatedRate = driver.findElement(By.xpath("//tr[td[contains(text(), 'USD')]]/td[2]"));
-        assertEquals("1.10", updatedRate.getText(), "The currency rate should be updated to the new value.");
+        wait.until(ExpectedConditions.textToBePresentInElement(incorrectRate, "1.25"));
+        String updatedRate = incorrectRate.getText();
+
+        assertEquals("1.25", updatedRate);
+        assertTrue(!updatedRate.equals(originalRate), "The currency rate should be updated.");
     }
 
     @AfterEach

@@ -2,7 +2,7 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-44
  * Epic: FPMAPP-2
- * Generated on: 2026-03-06 12:30:33
+ * Generated on: 2026-03-06 12:48:19
  * 
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
@@ -17,52 +17,54 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
-import org.junit.jupiter.api.extension.ExtendWith;
-import static org.junit.jupiter.api.Assertions.*;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@ExtendWith(SpringExtension.class)
-@SpringBootTest
 public class FpmAppNotificationTest {
 
     private WebDriver driver;
-
-    @Autowired
-    private FpmDealsheetController dealsheetController;
+    private WebDriverWait wait;
 
     @BeforeEach
     public void setUp() {
         System.setProperty("webdriver.chrome.driver", "path/to/chromedriver");
         driver = new ChromeDriver();
-        driver.get("http://localhost:8080/login");
+        wait = new WebDriverWait(driver, 10);
+        driver.get("http://localhost:8080"); // URL of the application
     }
 
     @Test
-    public void testNotificationForStatusChange() throws InterruptedException {
+    public void testNotificationForStatusChange() {
         // Step 1: Log in as a requester
-        WebElement usernameField = driver.findElement(By.id("username"));
+        WebElement loginField = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("login")));
+        loginField.sendKeys("requester@example.com");
         WebElement passwordField = driver.findElement(By.id("password"));
-        WebElement loginButton = driver.findElement(By.id("loginButton"));
-
-        usernameField.sendKeys("requester@example.com");
-        passwordField.sendKeys("password");
-        loginButton.click();
+        passwordField.sendKeys("password123");
+        driver.findElement(By.id("loginButton")).click();
 
         // Step 2: Submit a request
-        WebElement submitRequestButton = driver.findElement(By.id("submitRequestButton"));
-        submitRequestButton.click();
+        WebElement requestButton = wait.until(ExpectedConditions.elementToBeClickable(By.id("submitRequestButton")));
+        requestButton.click();
+        WebElement requestDetailsField = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("requestDetails")));
+        requestDetailsField.sendKeys("Request for approval");
+        driver.findElement(By.id("submitRequest"))..click();
 
-        // Simulate status change (mocked service response)
-        Thread.sleep(5000); // Wait for status change notification
+        // Step 3: Wait for a status change (mocking the status change)
+        // In a real scenario, you would wait for the backend to process the request
+        try {
+            Thread.sleep(5000); // Simulate waiting for status change
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
 
-        // Step 3: Check notification center
+        // Step 4: Check the notification center
         WebElement notificationCenter = driver.findElement(By.id("notificationCenter"));
-        String notificationText = notificationCenter.getText();
+        notificationCenter.click();
 
-        // Step 4: Assert notification received
-        assertTrue(notificationText.contains("Your request status has changed"), "Notification for status change not received.");
+        // Step 5: Verify notification for status change
+        WebElement notificationMessage = wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath("//div[contains(text(), 'Your request status has changed')]")));
+        assertTrue(notificationMessage.isDisplayed(), "Notification for status change is not displayed.");
     }
 
     @AfterEach

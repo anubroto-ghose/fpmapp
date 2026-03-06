@@ -2,7 +2,7 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-38
  * Epic: FPMAPP-2
- * Generated on: 2026-03-06 12:28:56
+ * Generated on: 2026-03-06 12:46:33
  * 
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
@@ -47,20 +47,18 @@ public class UserNotificationPreferencesTest {
 
     @Test
     public void testUpdateNotificationPreferences() {
-        navigateToPreferences();
-        updateNotificationPreferences();
+        navigateToSettings();
+        changeNotificationPreferences();
         saveChanges();
         verifyPreferencesUpdated();
     }
 
-    private void navigateToPreferences() {
+    private void navigateToSettings() {
         WebElement settingsMenu = wait.until(ExpectedConditions.elementToBeClickable(By.id("settingsMenu")));
         settingsMenu.click();
-        WebElement preferencesLink = wait.until(ExpectedConditions.elementToBeClickable(By.id("preferencesLink")));
-        preferencesLink.click();
     }
 
-    private void updateNotificationPreferences() {
+    private void changeNotificationPreferences() {
         WebElement emailNotificationCheckbox = wait.until(ExpectedConditions.elementToBeClickable(By.id("emailNotification")));
         WebElement inAppNotificationCheckbox = driver.findElement(By.id("inAppNotification"));
 

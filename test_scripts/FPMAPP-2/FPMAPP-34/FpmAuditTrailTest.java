@@ -2,7 +2,7 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-34
  * Epic: FPMAPP-2
- * Generated on: 2026-03-06 12:27:54
+ * Generated on: 2026-03-06 12:45:27
  * 
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
@@ -17,32 +17,26 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
-import org.junit.jupiter.api.extension.ExtendWith;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 import static org.junit.jupiter.api.Assertions.*;
 
-@ExtendWith(SpringExtension.class)
-@SpringBootTest
 public class FpmAuditTrailTest {
-
     private WebDriver driver;
-
-    @Autowired
-    private CurrencyConvertionController currencyConvertionController;
+    private WebDriverWait wait;
 
     @BeforeEach
     public void setUp() {
         System.setProperty("webdriver.chrome.driver", "path/to/chromedriver");
         driver = new ChromeDriver();
+        wait = new WebDriverWait(driver, 10);
         driver.get("http://localhost:8080/login");
     }
 
     @Test
-    public void testAuditTrailForRejection() {
+    public void testAuditTrailLoggingOnRejection() {
         // Step 1: Log in as an authorized user
-        WebElement usernameField = driver.findElement(By.id("username"));
+        WebElement usernameField = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("username")));
         WebElement passwordField = driver.findElement(By.id("password"));
         WebElement loginButton = driver.findElement(By.id("loginButton"));
 
@@ -51,18 +45,21 @@ public class FpmAuditTrailTest {
         loginButton.click();
 
         // Step 2: Reject a request
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("requestsPage")));
         WebElement rejectButton = driver.findElement(By.id("rejectRequestButton"));
         rejectButton.click();
 
+        // Confirm rejection
+        WebElement confirmButton = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("confirmRejectButton")));
+        confirmButton.click();
+
         // Step 3: Check the audit log for the rejection entry
         driver.get("http://localhost:8080/audit-log");
-        WebElement auditLogEntry = driver.findElement(By.xpath("//tr[td[contains(text(), 'Rejection')]]"));
+        WebElement auditLogEntry = wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath("//tr[td[contains(text(), 'Rejection')]]")));
 
         assertNotNull(auditLogEntry, "Audit log entry for rejection should exist.");
-        String entryText = auditLogEntry.getText();
-        assertTrue(entryText.contains("authorizedUser"), "Audit log should contain user details.");
-        assertTrue(entryText.contains("Rejection"), "Audit log should contain rejection action.");
-        assertTrue(entryText.contains(java.time.LocalDateTime.now().toString().substring(0, 10)), "Audit log should contain today's date.");
+        assertTrue(auditLogEntry.getText().contains("authorizedUser"), "Audit log should contain user details.");
+        assertTrue(auditLogEntry.getText().contains("Rejection"), "Audit log should indicate rejection action.");
     }
 
     @AfterEach

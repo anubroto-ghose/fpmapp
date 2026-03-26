@@ -2,7 +2,7 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-8791
  * Epic: FPMAPP-8590
- * Generated on: 2026-03-26 15:14:36
+ * Generated on: 2026-03-26 15:30:08
  * 
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
@@ -10,14 +10,12 @@
 
 package com.webapp.fpmapp;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 
 import java.net.URI;
 import java.time.Duration;
-import java.util.concurrent.CountDownLatch;
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterAll;
@@ -25,8 +23,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.Mockito;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
@@ -41,44 +38,44 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.test.context.ActiveProfiles;
+import org.springframework.http.MediaType;
+import org.springframework.messaging.converter.MappingJackson2MessageConverter;
+import org.springframework.messaging.simp.stomp.StompSession;
+import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 import org.springframework.web.socket.sockjs.client.SockJsClient;
 import org.springframework.web.socket.sockjs.client.Transport;
 import org.springframework.web.socket.sockjs.client.WebSocketTransport;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.webapp.fpmapp.dto.FpmDealsheetController;
-import com.webapp.fpmapp.dto.FpmTravelController;
 import com.webapp.fpmapp.dto.FpmUserProfileController;
+import com.webapp.fpmapp.dto.FpmTravelController;
 import com.webapp.fpmapp.entities.User;
 import com.webapp.fpmapp.services.CurrencyConvertionController;
 import com.webapp.fpmapp.services.FpmCommonController;
 import com.webapp.fpmapp.services.FpmForecastController;
 
-import org.springframework.messaging.simp.stomp.StompSession;
-import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter;
-import org.springframework.messaging.simp.stomp.StompHeaders;
-import org.springframework.messaging.simp.stomp.StompFrameHandler;
-import java.lang.reflect.Type;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
+import org.springframework.boot.test.web.server.LocalManagementPort;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Integration test for real-time approval status update without full page refresh.
  * 
  * Preconditions:
- * - User logged in
+ * - User is logged in
  * - Approval workflow active with pending tasks
- * - WebSocket connection active
+ * - WebSocket connection established
  * 
- * This test mocks backend services and simulates a real-time approval update via WebSocket.
+ * This test mocks backend services and simulates a WebSocket message to verify UI updates.
  */
+
+@ExtendWith(SpringExtension.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ExtendWith(MockitoExtension.class)
-@ActiveProfiles("test")
 public class RealTimeApprovalStatusUpdateIT {
 
     @LocalServerPort
@@ -86,7 +83,9 @@ public class RealTimeApprovalStatusUpdateIT {
 
     private static WebDriver driver;
 
-    private WebDriverWait wait;
+    private static WebSocketStompClient stompClient;
+
+    private StompSession stompSession;
 
     @MockBean
     private FpmDealsheetController fpmDealsheetController;
@@ -106,19 +105,22 @@ public class RealTimeApprovalStatusUpdateIT {
     @MockBean
     private FpmCommonController fpmCommonController;
 
-    @Autowired
-    private SimpMessagingTemplate messagingTemplate;
-
-    private static final String WS_TOPIC_APPROVAL_STATUS = "/topic/approval-status";
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeAll
     public static void setupClass() {
-        // Setup ChromeDriver (assumes chromedriver is in PATH)
+        // Setup ChromeDriver (headless for CI)
+        System.setProperty("webdriver.chrome.driver", "./chromedriver");
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--headless");
         options.addArguments("--disable-gpu");
         options.addArguments("--window-size=1920,1080");
         driver = new ChromeDriver(options);
+
+        // Setup WebSocketStompClient
+        stompClient = new WebSocketStompClient(new SockJsClient(
+                Collections.singletonList(new WebSocketTransport(new StandardWebSocketClient()))));
+        stompClient.setMessageConverter(new MappingJackson2MessageConverter());
     }
 
     @AfterAll
@@ -126,126 +128,114 @@ public class RealTimeApprovalStatusUpdateIT {
         if (driver != null) {
             driver.quit();
         }
+        if (stompClient != null) {
+            stompClient.stop();
+        }
     }
 
     @BeforeEach
-    public void setup() {
-        wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-
-        // Mock user login and pending approvals
+    public void setup() throws Exception {
+        // Mock user login and pending approval tasks
         User mockUser = new User();
         mockUser.setId(1001L);
         mockUser.setUsername("testuser");
+        mockUser.setRole("manager");
 
         when(fpmUserProfileController.getCurrentUser()).thenReturn(mockUser);
 
         // Mock pending approval tasks
-        when(fpmDealsheetController.getPendingApprovalsForUser(mockUser.getId()))
-            .thenReturn(List.of(
-                new com.webapp.fpmapp.entities.UserApprovalTask(2001L, "Pending", "Deal Sheet #123")
-            ));
+        when(fpmDealsheetController.getPendingApprovalsForUser(Mockito.anyLong()))
+                .thenReturn(Collections.singletonList(
+                        new com.webapp.fpmapp.entities.User() // Using User entity as placeholder for approval task
+                ));
 
-        // Mock audit trail initial state
-        when(fpmCommonController.getAuditTrail(2001L))
-            .thenReturn(List.of(
-                new com.webapp.fpmapp.entities.AuditTrailEntry("Created", "testuser", "2026-03-26T14:00:00Z")
-            ));
+        // Mock currency conversion and forecast services as needed
+        when(currencyConvertionController.getCurrentRates()).thenReturn(Collections.emptyMap());
+        when(fpmForecastController.getForecastData()).thenReturn(Collections.emptyMap());
+
+        // Open the application login page and simulate login
+        driver.get("http://localhost:" + port + "/login");
+
+        // Simulate login form fill and submit
+        WebElement usernameInput = driver.findElement(By.id("username"));
+        WebElement passwordInput = driver.findElement(By.id("password"));
+        WebElement loginButton = driver.findElement(By.id("loginButton"));
+
+        usernameInput.sendKeys("testuser");
+        passwordInput.sendKeys("password123");
+        loginButton.click();
+
+        // Wait for redirect to dashboard
+        new WebDriverWait(driver, Duration.ofSeconds(10))
+                .until(ExpectedConditions.urlContains("/dashboard"));
+
+        // Verify user is logged in by checking presence of logout button
+        assertTrue(driver.findElement(By.id("logoutButton")).isDisplayed());
+
+        // Establish WebSocket connection to simulate real-time updates
+        stompSession = stompClient.connect(
+                new URI("ws://localhost:" + port + "/ws-endpoint"),
+                new WebSocketHttpHeaders(),
+                new StompSessionHandlerAdapter() {
+                }).get(5, TimeUnit.SECONDS);
+
+        assertNotNull(stompSession);
     }
 
     @Test
     public void testRealTimeApprovalStatusUpdateWithoutFullPageRefresh() throws Exception {
-        String baseUrl = "http://localhost:" + port + "/fpmapp";
+        // Navigate to approvals page
+        driver.get("http://localhost:" + port + "/approvals");
 
-        // Navigate to the approval page
-        driver.get(baseUrl + "/approvals");
+        // Wait for approval list to load
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("approvalList")));
 
-        // Wait for page to load and user to be logged in
-        wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("approval-list")));
+        // Find a pending approval item
+        WebElement pendingApproval = driver.findElement(By.cssSelector(".approval-item.pending"));
+        assertNotNull(pendingApproval, "Pending approval item should be present");
 
-        // Verify initial approval status is 'Pending'
-        WebElement approvalStatus = driver.findElement(By.cssSelector("#approval-list .approval-status"));
-        assertThat(approvalStatus.getText()).isEqualToIgnoringCase("Pending");
+        // Simulate an approval action triggered externally (e.g., by another user or system)
+        // We simulate this by sending a WebSocket message to the client
 
-        // Verify audit trail initial entry
-        WebElement auditTrailView = driver.findElement(By.id("ApprovalAuditTrailView"));
-        assertThat(auditTrailView.getText()).contains("Created");
+        // Prepare a mock approval update message payload
+        String approvalUpdateJson = "{" +
+                "\"approvalId\": 12345," +
+                "\"status\": \"APPROVED\"," +
+                "\"updatedBy\": \"managerUser\"," +
+                "\"timestamp\": \"2026-03-26T15:30:00Z\"}";
 
-        // Setup latch to wait for WebSocket message processing
-        CountDownLatch latch = new CountDownLatch(1);
+        // Send the message to the subscribed topic
+        stompSession.send("/app/approval/update", approvalUpdateJson.getBytes());
 
-        // Simulate backend sending a WebSocket message for approval update
-        new Thread(() -> {
-            try {
-                Thread.sleep(2000); // simulate delay
-                // Simulate approval status update message
-                ApprovalStatusUpdateMessage updateMessage = new ApprovalStatusUpdateMessage();
-                updateMessage.setApprovalRequestId(2001L);
-                updateMessage.setNewStatus("Approved");
-                updateMessage.setAuditTrailEntry(new com.webapp.fpmapp.entities.AuditTrailEntry("Approved", "approverUser", "2026-03-26T15:00:00Z"));
+        // Wait for UI to update approval status without full page reload
+        // We check that the approval item status text changes to "APPROVED"
 
-                messagingTemplate.convertAndSend(WS_TOPIC_APPROVAL_STATUS, updateMessage);
-
-                latch.countDown();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }).start();
-
-        // Wait for the UI to update approval status without page refresh
-        boolean updated = wait.until(driver -> {
-            WebElement statusElement = driver.findElement(By.cssSelector("#approval-list .approval-status"));
-            return "Approved".equalsIgnoreCase(statusElement.getText());
+        boolean statusUpdated = wait.until(driver -> {
+            WebElement statusElement = driver.findElement(By.cssSelector(".approval-item[data-id='12345'] .status"));
+            return statusElement != null && "APPROVED".equalsIgnoreCase(statusElement.getText().trim());
         });
 
-        assertThat(updated).isTrue();
+        assertTrue(statusUpdated, "Approval status should update to APPROVED in real-time");
 
-        // Verify audit trail view updated with new entry
-        boolean auditUpdated = wait.until(driver -> {
-            WebElement auditView = driver.findElement(By.id("ApprovalAuditTrailView"));
-            return auditView.getText().contains("Approved") && auditView.getText().contains("approverUser");
-        });
-
-        assertThat(auditUpdated).isTrue();
-
-        // Verify no full page reload occurred by checking URL remains the same
+        // Verify no full page reload occurred by checking the URL remains the same
         String currentUrl = driver.getCurrentUrl();
-        assertThat(currentUrl).isEqualTo(baseUrl + "/approvals");
+        assertTrue(currentUrl.contains("/approvals"), "Page URL should remain on approvals page");
+
+        // Verify ApprovalAuditTrailView shows updated audit trail entry
+        WebElement auditTrailView = driver.findElement(By.id("ApprovalAuditTrailView"));
+        assertNotNull(auditTrailView, "Audit trail view component should be present");
+
+        // Wait for new audit trail entry to appear
+        boolean auditEntryAppeared = wait.until(driver -> {
+            return auditTrailView.findElements(By.cssSelector(".audit-entry")).stream()
+                    .anyMatch(e -> e.getText().contains("APPROVED") && e.getText().contains("managerUser"));
+        });
+
+        assertTrue(auditEntryAppeared, "Audit trail should show the new approval entry in real-time");
 
         // Verify no error messages or UI glitches
-        List<WebElement> errorElements = driver.findElements(By.cssSelector(".error-message, .ui-glitch"));
-        assertThat(errorElements).isEmpty();
-    }
-
-    /**
-     * DTO for approval status update message sent over WebSocket.
-     */
-    public static class ApprovalStatusUpdateMessage {
-        private Long approvalRequestId;
-        private String newStatus;
-        private com.webapp.fpmapp.entities.AuditTrailEntry auditTrailEntry;
-
-        public Long getApprovalRequestId() {
-            return approvalRequestId;
-        }
-
-        public void setApprovalRequestId(Long approvalRequestId) {
-            this.approvalRequestId = approvalRequestId;
-        }
-
-        public String getNewStatus() {
-            return newStatus;
-        }
-
-        public void setNewStatus(String newStatus) {
-            this.newStatus = newStatus;
-        }
-
-        public com.webapp.fpmapp.entities.AuditTrailEntry getAuditTrailEntry() {
-            return auditTrailEntry;
-        }
-
-        public void setAuditTrailEntry(com.webapp.fpmapp.entities.AuditTrailEntry auditTrailEntry) {
-            this.auditTrailEntry = auditTrailEntry;
-        }
+        boolean errorVisible = driver.findElements(By.cssSelector(".error-message, .ui-glitch")).size() > 0;
+        assertFalse(errorVisible, "No error messages or UI glitches should be visible");
     }
 }

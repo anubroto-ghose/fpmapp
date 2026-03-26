@@ -1,19 +1,20 @@
 # Test Case ID: TEST_CASE
 # Generated from Jira Ticket: FPMAPP-8789
 # Epic: FPMAPP-8590
-# Generated on: 2026-03-26 15:13:17
+# Generated on: 2026-03-26 15:28:50
 #
 # This is an auto-generated Cucumber feature file.
 # Modify with caution as changes may be overwritten.
 
-Feature: Approval Status UI Update on WebSocket Connection Loss
-  As a logged-in user of the FPMApplication
-  I want the approval status UI to not update in real-time if the WebSocket connection is lost
-  So that the UI remains stable and does not reload or show errors unnecessarily
-
+Feature: Approval Status Real-time Update with WebSocket Connection Loss
+  
+  As a user of the FPMApplication UI
+  I want to ensure that when the WebSocket connection is lost
+  The approval status does not update in real-time and no full page reload occurs
+  
   Background:
-    Given the user is logged into the FPMApplication UI
-    And the user is on the approval list page
+    Given the user "testuser" is logged into the FPMApplication UI
+    And the WebSocket connection is active
 
   Scenario: Approval status does not update when WebSocket connection is lost
     Given the WebSocket connection is lost

@@ -2,7 +2,7 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-8789
  * Epic: FPMAPP-8590
- * Generated on: 2026-03-26 15:00:34
+ * Generated on: 2026-03-26 15:13:17
  * 
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
@@ -40,16 +40,17 @@ import com.webapp.fpmapp.services.FpmForecastController;
 import com.webapp.fpmapp.services.CurrencyConvertionController;
 
 /**
- * Integration test for real-time approval status update UI behavior when WebSocket connection is lost.
+ * Integration test for verifying UI behavior when WebSocket connection is lost.
  * 
  * Preconditions:
- * - User logged in
- * - WebSocket connection lost
- * - Approval status changed by another user/session
+ * - User is logged in
+ * - WebSocket connection is lost
+ * - Approval status change triggered externally
  * 
- * Verifies that UI does not update approval status in real-time,
+ * Validates that UI does not update approval status in real-time,
  * no full page reload occurs, and connection error indicator is shown.
  */
+
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
 public class ApprovalStatusWebSocketLossIntegrationTest {
@@ -58,18 +59,15 @@ public class ApprovalStatusWebSocketLossIntegrationTest {
     private static WebDriverWait wait;
 
     @Autowired
-    private FpmDealsheetController fpmDealsheetController;
-
-    @MockBean
     private CurrencyConvertionController currencyConvertionController;
 
-    @MockBean
+    @Autowired
     private FpmForecastController fpmForecastController;
 
     @MockBean
     private FpmCommonController fpmCommonController;
 
-    private static final String BASE_URL = "http://localhost:8080/fpmapp";
+    private static final String BASE_URL = "http://localhost:8080";
 
     @BeforeAll
     public static void setupClass() {
@@ -91,75 +89,89 @@ public class ApprovalStatusWebSocketLossIntegrationTest {
 
     @BeforeEach
     public void setup() {
-        // Mock currency conversion service to avoid external calls
-        Mockito.when(currencyConvertionController.getExchangeRate(Mockito.anyString(), Mockito.anyString()))
-                .thenReturn(1.0);
-
-        // Mock forecast and common controllers as needed
-        Mockito.when(fpmForecastController.getForecastData(Mockito.anyString()))
-                .thenReturn("{}" /* empty JSON as string */);
-        Mockito.when(fpmCommonController.getCommonData())
-                .thenReturn("{}" /* empty JSON as string */);
+        // Mock any necessary service calls to isolate test
+        Mockito.when(fpmCommonController.getApprovalStatus(Mockito.anyLong()))
+               .thenReturn("Pending");
 
         // Navigate to login page and perform login
         driver.get(BASE_URL + "/login");
 
         WebElement usernameInput = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("username")));
         WebElement passwordInput = driver.findElement(By.id("password"));
-        WebElement loginButton = driver.findElement(By.id("loginBtn"));
+        WebElement loginButton = driver.findElement(By.id("loginButton"));
 
         usernameInput.sendKeys("testuser");
-        passwordInput.sendKeys("TestPassword123");
+        passwordInput.sendKeys("password123");
         loginButton.click();
 
-        // Wait for main page to load
+        // Wait for main dashboard or approval page to load
         wait.until(ExpectedConditions.urlContains("/dashboard"));
     }
 
+    /**
+     * Test case: UI does not update approval status if WebSocket connection is lost.
+     * 
+     * Steps:
+     * 1. Simulate WebSocket connection loss.
+     * 2. Trigger approval status change externally.
+     * 3. Verify UI does not update approval status in real-time.
+     * 4. Verify no full page reload.
+     * 5. Verify connection error indicator is shown.
+     * 6. Verify no error messages related to approval update failures.
+     */
     @Test
-    public void testApprovalStatusDoesNotUpdateWhenWebSocketLost() throws InterruptedException {
-        // Navigate to approvals page
+    public void testApprovalStatusDoesNotUpdateOnWebSocketLoss() throws InterruptedException {
+        // Navigate to approval list page
         driver.get(BASE_URL + "/approvals");
 
         // Wait for approval list to load
-        wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(".approval-item")));
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("approvalList")));
 
         // Locate an approval item and get its initial status text
-        WebElement approvalItem = driver.findElement(By.cssSelector(".approval-item[data-request-id='12345']"));
-        WebElement statusElement = approvalItem.findElement(By.cssSelector(".approval-status"));
-        String initialStatus = statusElement.getText();
+        WebElement approvalStatusElement = driver.findElement(By.cssSelector("#approvalList .approval-item:first-child .approval-status"));
+        String initialStatus = approvalStatusElement.getText();
+        assertThat(initialStatus).isNotEmpty();
 
         // Simulate WebSocket connection loss by overriding the WebSocket object in browser
-        ((JavascriptExecutor) driver).executeScript(
-                "if(window.AppWebSocket) { window.AppWebSocket.close(); window.AppWebSocket = null; }"
-        );
+        String simulateWsLossScript =
+            "if(window.AppWebSocket) {" +
+            "  window.AppWebSocket.close();" +
+            "  window.AppWebSocket = null;" +
+            "  window.wsConnectionLost = true;" +
+            "} else {" +
+            "  window.wsConnectionLost = true;" +
+            "}";
 
-        // Verify UI shows connection lost indicator
-        WebElement connectionIndicator = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("ws-connection-status")));
-        assertThat(connectionIndicator.getText().toLowerCase()).contains("disconnected");
+        ((JavascriptExecutor) driver).executeScript(simulateWsLossScript);
 
-        // Simulate backend approval status change triggered by another user/session
-        // This would normally be pushed via WebSocket, but since WS is lost, UI should not update
-        // We simulate this by directly changing the DOM via JS to mimic a backend update attempt
-        ((JavascriptExecutor) driver).executeScript(
-                "var statusElem = document.querySelector('.approval-item[data-request-id=\'12345\'] .approval-status');" +
-                "if(statusElem) { statusElem.textContent = 'Approved'; }"
-        );
+        // Verify UI shows connection error indicator
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("wsConnectionErrorIndicator")));
+        WebElement connectionErrorIndicator = driver.findElement(By.id("wsConnectionErrorIndicator"));
+        assertThat(connectionErrorIndicator.isDisplayed()).isTrue();
 
-        // Wait briefly to simulate time passing
-        TimeUnit.SECONDS.sleep(3);
+        // Simulate external approval status change by invoking backend mock or API
+        // Here we simulate by updating the mocked service to return 'Approved'
+        Mockito.when(fpmCommonController.getApprovalStatus(Mockito.anyLong()))
+               .thenReturn("Approved");
 
-        // Verify that the approval status text remains unchanged (no real-time update)
-        String currentStatus = statusElement.getText();
-        assertThat(currentStatus).isEqualTo(initialStatus);
+        // Simulate backend event that would normally trigger WebSocket update
+        // Since WebSocket is lost, UI should NOT update automatically
 
-        // Verify no full page reload occurred by checking URL remains the same
+        // Wait some time to allow any UI update attempt
+        TimeUnit.SECONDS.sleep(5);
+
+        // Re-fetch the approval status text
+        String statusAfterWsLoss = driver.findElement(By.cssSelector("#approvalList .approval-item:first-child .approval-status")).getText();
+
+        // Assert that status has NOT changed (no real-time update)
+        assertThat(statusAfterWsLoss).isEqualTo(initialStatus);
+
+        // Assert no full page reload occurred by checking URL remains the same
         String currentUrl = driver.getCurrentUrl();
         assertThat(currentUrl).contains("/approvals");
 
-        // Verify no error messages related to approval update failures are shown
-        boolean errorMessagePresent = driver.findElements(By.cssSelector(".error-message")).stream()
-                .anyMatch(e -> e.getText().toLowerCase().contains("approval update failed"));
+        // Assert no error messages related to approval update failures are shown
+        boolean errorMessagePresent = driver.findElements(By.cssSelector(".approval-update-error")).size() > 0;
         assertThat(errorMessagePresent).isFalse();
     }
 }

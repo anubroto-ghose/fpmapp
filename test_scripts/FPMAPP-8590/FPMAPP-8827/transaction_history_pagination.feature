@@ -1,39 +1,34 @@
 # Test Case ID: TEST_CASE
 # Generated from Jira Ticket: FPMAPP-8827
 # Epic: FPMAPP-8590
-# Generated on: 2026-03-26 15:56:36
+# Generated on: 2026-03-27 07:44:53
 #
 # This is an auto-generated Cucumber feature file.
 # Modify with caution as changes may be overwritten.
 
-Feature: Transaction History Pagination with Role-Based Approval and Audit Trail
+Feature: Transaction History Pagination for INR to JPY entries
   
-  As a user with role-based approval permissions
+  As a financial user with role-based approval rights
   I want to navigate through multiple pages of INR to JPY transactions
-  So that I can verify audit trail and approval indicators are correctly displayed on each page
+  So that I can verify audit trails and approval statuses without data loss
 
   Background:
-    Given the user is logged in with role "Manager"
-    And the system has more than one page of INR to JPY transactions with role-based approval and audit trail data
+    Given the user is logged in with role "FINANCE_APPROVER"
+    And the transaction history contains more than one page of INR to JPY transactions
 
-  Scenario: User navigates through transaction history pages and verifies data consistency
+  Scenario: Navigate through transaction history pages and verify data consistency
     When the user navigates to the transaction history page
-    Then the first page of INR to JPY transactions is displayed with correct approval status and audit trail indicators
+    Then the first page of INR to JPY transactions is displayed with audit trail and approval status
 
-    When the user scrolls to the bottom of the page
-    And the user clicks the "Next" pagination button
-    Then the second page of INR to JPY transactions is displayed with correct approval status and audit trail indicators
+    When the user navigates to page 2
+    Then the second page of INR to JPY transactions is displayed with audit trail and approval status
 
-    When the user clicks the "Previous" pagination button
-    Then the first page of INR to JPY transactions is displayed again with correct approval status and audit trail indicators
+    When the user navigates to page 3
+    Then the third page of INR to JPY transactions is displayed with audit trail and approval status
 
-  Scenario Outline: Verify audit trail and approval indicators on each page
-    Given the user is on page <pageNumber> of the transaction history
-    Then all transactions on the page have currency pair "INR/JPY"
-    And each transaction displays a valid approval status
-    And each transaction has an audit trail link
-
-    Examples:
-      | pageNumber |
-      | 1          |
-      | 2          |
+  Scenario: Verify pagination performance and data integrity
+    Given the user is on the transaction history page
+    When the user switches between pages 1 and 3
+    Then each page loads within acceptable performance limits
+    And no data loss occurs
+    And audit trail and approval status indicators are correctly displayed on all pages

@@ -1,7 +1,7 @@
 # Test Case ID: TEST_CASE
 # Generated from Jira Ticket: FPMAPP-8820
 # Epic: FPMAPP-8590
-# Generated on: 2026-03-26 15:51:46
+# Generated on: 2026-03-27 07:49:07
 #
 # This is an auto-generated Cucumber feature file.
 # Modify with caution as changes may be overwritten.
@@ -13,21 +13,20 @@ Feature: Audit Trail Retrieval API
 
   Background:
     Given multiple audit trail entries exist for various approval requests and action types
-    And the audit trail retrieval API is accessible at "/api/approvals/audit-trail/{requestId}"
+    And the audit trail retrieval API endpoint "/api/approvals/audit-trail/{requestId}" is accessible
 
   Scenario: Retrieve all audit trail entries for a valid request ID without action type filter
     When I call the audit trail retrieval API with request ID "REQ12345" and no action type filter
     Then the API returns all audit trail entries for request ID "REQ12345"
-    And the response includes entries with action types "approval", "delegation", "override"
-    And each entry contains action_type, timestamp, user details, delegation info, and comments
+    And each audit trail entry includes action_type, timestamp, user details, delegation info, and comments
 
-  Scenario: Retrieve only approval actions for a valid request ID with action type filter
-    When I call the audit trail retrieval API with request ID "REQ12345" and action type filter "approval"
-    Then the API returns only audit trail entries with action type "approval" for request ID "REQ12345"
-    And each entry contains action_type "approval" and all required fields
+  Scenario: Retrieve audit trail entries filtered by action_type = 'approval'
+    When I call the audit trail retrieval API with request ID "REQ12345" and action_type filter "approval"
+    Then the API returns only audit trail entries with action_type "approval" for request ID "REQ12345"
+    And each audit trail entry includes action_type, timestamp, user details, delegation info, and comments
 
-  Scenario: Retrieve audit trail entries for an invalid or non-existent request ID
-    When I call the audit trail retrieval API with request ID "INVALID_REQ"
+  Scenario: Retrieve audit trail entries with an invalid request ID
+    When I call the audit trail retrieval API with invalid request ID "INVALID_REQ"
     Then the API returns an empty list or appropriate error message
 
-  # Step Definitions would be implemented in Java to mock service responses and verify API outputs
+  # Step Definitions would be implemented in Java to perform HTTP calls and assertions

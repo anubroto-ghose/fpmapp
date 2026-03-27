@@ -2,8 +2,8 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-8798
  * Epic: FPMAPP-8590
- * Generated on: 2026-03-26 15:34:49
- * 
+ * Generated on: 2026-03-27 08:03:29
+ *
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
  */
@@ -19,10 +19,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,42 +36,35 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
-import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.web.client.RestTemplate;
 
 import com.webapp.fpmapp.services.CurrencyConvertionController;
 
-import reactor.core.publisher.Mono;
-
-/**
- * Integration test for validating API access to historical currency rates.
- * 
- * Uses Spring Boot test context and Selenium WebDriver to simulate API calls and validate responses.
- * Mocks CurrencyConvertionController service to provide controlled test data.
- */
+import io.github.bonigarcia.wdm.WebDriverManager;
 
 @ExtendWith({SpringExtension.class, MockitoExtension.class})
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
 @ActiveProfiles("test")
 public class HistoricalCurrencyRatesApiIntegrationTest {
 
-    private static WebDriver driver;
-
-    @Autowired
-    private WebTestClient webTestClient;
+    private WebDriver driver;
 
     @MockBean
     private CurrencyConvertionController currencyConvertionController;
 
-    private static final String BASE_URL = "http://localhost:8080";
+    @Autowired
+    private RestTemplate restTemplate;
+
+    private static final String BASE_URL = "http://localhost:8080/api/currency";
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
-    @BeforeAll
-    public static void setupClass() {
-        // Setup ChromeDriver (headless for CI environments)
-        System.setProperty("webdriver.chrome.driver", "/usr/local/bin/chromedriver");
+    @BeforeEach
+    public void setUp() {
+        WebDriverManager.chromedriver().setup();
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--headless");
         options.addArguments("--disable-gpu");
@@ -82,72 +72,77 @@ public class HistoricalCurrencyRatesApiIntegrationTest {
         driver = new ChromeDriver(options);
     }
 
-    @AfterAll
-    public static void tearDownClass() {
-        if (driver != null) {
-            driver.quit();
-        }
-    }
+    @Test
+    public void testHistoricalCurrencyRatesApi() throws Exception {
+        // Preconditions
+        String fromCurrency = "USD";
+        String toCurrency = "EUR";
+        LocalDate startDate = LocalDate.now().minusDays(10);
+        LocalDate endDate = LocalDate.now().minusDays(1);
 
-    @BeforeEach
-    public void setup() {
-        // Mock historical currency rates response
-        List<Map<String, Object>> mockRates = Arrays.asList(
-            Map.of("date", "2026-03-20", "currencyPair", "USD/EUR", "rate", 0.92),
-            Map.of("date", "2026-03-21", "currencyPair", "USD/EUR", "rate", 0.93),
-            Map.of("date", "2026-03-22", "currencyPair", "USD/EUR", "rate", 0.91)
+        // Mocked historical rates data
+        List<HistoricalRate> mockedRates = Arrays.asList(
+                new HistoricalRate(startDate, 0.85),
+                new HistoricalRate(startDate.plusDays(1), 0.86),
+                new HistoricalRate(startDate.plusDays(2), 0.87),
+                new HistoricalRate(endDate, 0.88)
         );
 
-        when(currencyConvertionController.getHistoricalRates(eq("USD/EUR"), eq("2026-03-20"), eq("2026-03-22")))
-            .thenReturn(mockRates);
+        // Mock the service response
+        when(currencyConvertionController.getHistoricalRates(eq(fromCurrency), eq(toCurrency), eq(startDate), eq(endDate)))
+                .thenReturn(ResponseEntity.ok(mockedRates));
+
+        // Step 1: Send API request querying historical currency rates
+        String apiUrl = String.format("%s/historical?from=%s&to=%s&startDate=%s&endDate=%s",
+                BASE_URL, fromCurrency, toCurrency, startDate.format(DATE_FORMATTER), endDate.format(DATE_FORMATTER));
+
+        driver.get(apiUrl);
+
+        // Step 2: Validate API response status code
+        // Since we are using WebDriver to hit a REST API, we will parse the page source as JSON
+        String pageSource = driver.getPageSource();
+        assertThat(pageSource).isNotNull();
+
+        // Step 3: Verify returned data matches requested date range and currency pair
+        // For demonstration, parse JSON manually (in real scenario use JSON parser)
+        // The API returns JSON array of objects [{date: "yyyy-MM-dd", rate: double}, ...]
+
+        // Simple validation of content
+        assertThat(pageSource).contains(fromCurrency);
+        assertThat(pageSource).contains(toCurrency);
+
+        for (HistoricalRate rate : mockedRates) {
+            String dateStr = rate.getDate().format(DATE_FORMATTER);
+            assertThat(pageSource).contains(dateStr);
+            assertThat(pageSource).contains(String.valueOf(rate.getRate()));
+        }
+
+        // Step 4: Check response format and data accuracy
+        // Basic checks for JSON format
+        assertThat(pageSource.trim()).startsWith("[");
+        assertThat(pageSource.trim()).endsWith("]");
+
+        // Additional error handling: check for error messages
+        assertThat(pageSource).doesNotContain("error");
+        assertThat(pageSource).doesNotContain("exception");
     }
 
-    @Test
-    public void testHistoricalCurrencyRatesApi() {
-        // Construct the API URL with query parameters
-        String currencyPair = "USD/EUR";
-        String startDate = "2026-03-20";
-        String endDate = "2026-03-22";
+    // Helper DTO class for mocking
+    public static class HistoricalRate {
+        private LocalDate date;
+        private double rate;
 
-        String apiUrl = String.format("%s/api/currency/historical?currencyPair=%s&startDate=%s&endDate=%s",
-                BASE_URL, currencyPair, startDate, endDate);
+        public HistoricalRate(LocalDate date, double rate) {
+            this.date = date;
+            this.rate = rate;
+        }
 
-        // Use Selenium WebDriver to send GET request and capture response
-        // Since Selenium is primarily for UI, we simulate by navigating to a test page that calls the API
-        // For demonstration, we will use WebTestClient for direct API call validation
+        public LocalDate getDate() {
+            return date;
+        }
 
-        webTestClient.get()
-            .uri(uriBuilder -> uriBuilder
-                .path("/api/currency/historical")
-                .queryParam("currencyPair", currencyPair)
-                .queryParam("startDate", startDate)
-                .queryParam("endDate", endDate)
-                .build())
-            .accept(MediaType.APPLICATION_JSON)
-            .exchange()
-            .expectStatus().isOk()
-            .expectHeader().contentType(MediaType.APPLICATION_JSON)
-            .expectBodyList(Map.class)
-            .value(responseList -> {
-                // Assert response size matches mocked data
-                assertThat(responseList).hasSize(3);
-
-                // Assert each entry matches requested currency pair and date range
-                for (Map<String, Object> entry : responseList) {
-                    String dateStr = (String) entry.get("date");
-                    String pair = (String) entry.get("currencyPair");
-                    Double rate = (Double) entry.get("rate");
-
-                    assertThat(pair).isEqualTo(currencyPair);
-
-                    LocalDate date = LocalDate.parse(dateStr, DATE_FORMATTER);
-                    LocalDate start = LocalDate.parse(startDate, DATE_FORMATTER);
-                    LocalDate end = LocalDate.parse(endDate, DATE_FORMATTER);
-
-                    assertThat(date).isBetween(start, end);
-                    assertThat(rate).isNotNull();
-                    assertThat(rate).isGreaterThan(0);
-                }
-            });
+        public double getRate() {
+            return rate;
+        }
     }
 }

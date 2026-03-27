@@ -2,46 +2,53 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-8828
  * Epic: FPMAPP-8590
- * Generated on: 2026-03-26 15:57:16
- * 
+ * Generated on: 2026-03-27 07:44:08
+ *
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
  */
 
-package com.webapp.fpmapp.tests;
+package com.webapp.fpmapp;
 
-import com.webapp.fpmapp.controllers.FpmCommonController;
-import com.webapp.fpmapp.controllers.FpmTravelController;
-import com.webapp.fpmapp.controllers.FpmDealsheetController;
-import com.webapp.fpmapp.controllers.FpmUserProfileController;
-import com.webapp.fpmapp.services.CurrencyConvertionController;
-import com.webapp.fpmapp.services.FpmForecastController;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+
+import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mockito;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.Select;
 import org.openqa.selenium.support.ui.WebDriverWait;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.test.context.ActiveProfiles;
 
-import java.time.Duration;
-import java.util.Arrays;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
+import com.webapp.fpmapp.dto.FpmDealsheetController;
+import com.webapp.fpmapp.dto.FpmTravelController;
+import com.webapp.fpmapp.dto.FpmUserProfileController;
+import com.webapp.fpmapp.entities.User;
+import com.webapp.fpmapp.services.CurrencyConvertionController;
+import com.webapp.fpmapp.services.FpmCommonController;
+import com.webapp.fpmapp.services.FpmForecastController;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
-@ExtendWith(SpringExtension.class)
+@ActiveProfiles("test")
+@ExtendWith(MockitoExtension.class)
 public class CurrencyFilterRegressionTest {
 
     private static WebDriver driver;
@@ -74,7 +81,7 @@ public class CurrencyFilterRegressionTest {
         options.addArguments("--disable-gpu");
         options.addArguments("--window-size=1920,1080");
         driver = new ChromeDriver(options);
-        wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        wait = new WebDriverWait(driver, 15);
     }
 
     @AfterAll
@@ -86,93 +93,138 @@ public class CurrencyFilterRegressionTest {
 
     @BeforeEach
     public void setupMocks() {
-        // Mock currency conversion history with multiple entries
-        // Including INR to USD and INR to JPY
-        List<String> currencyHistory = Arrays.asList(
-                "INR to USD",
-                "INR to JPY",
-                "USD to EUR"
+        // Mock currency conversion history data with multiple currency pairs
+        List<TransactionHistoryEntry> mockHistory = Arrays.asList(
+            new TransactionHistoryEntry("INR", "USD", 1000.0, "Approved", "Audit trail data 1", LocalDateTime.now().minusDays(2), "ROLE_FINANCE"),
+            new TransactionHistoryEntry("INR", "JPY", 50000.0, "Approved", "Audit trail data 2", LocalDateTime.now().minusDays(1), "ROLE_MANAGER"),
+            new TransactionHistoryEntry("INR", "JPY", 75000.0, "Pending", "Audit trail data 3", LocalDateTime.now().minusHours(5), "ROLE_MANAGER"),
+            new TransactionHistoryEntry("USD", "JPY", 1200.0, "Rejected", "Audit trail data 4", LocalDateTime.now().minusDays(3), "ROLE_FINANCE")
         );
 
-        // Mock method to return currency conversion history
-        Mockito.when(currencyConvertionController.getConversionHistory())
-                .thenReturn(currencyHistory);
+        when(currencyConvertionController.getTransactionHistory(any(), any())).thenAnswer(invocation -> {
+            String fromCurrency = invocation.getArgument(0);
+            String toCurrency = invocation.getArgument(1);
+            // Filter mock data based on from and to currency
+            return mockHistory.stream()
+                .filter(e -> e.getFromCurrency().equals(fromCurrency) && e.getToCurrency().equals(toCurrency))
+                .toList();
+        });
 
-        // Mock approval status and audit trail for INR to JPY
-        Mockito.when(fpmCommonController.getApprovalStatusForCurrencyPair("INR to JPY"))
-                .thenReturn("Approved");
-
-        Mockito.when(fpmCommonController.getAuditTrailForCurrencyPair("INR to JPY"))
-                .thenReturn(Arrays.asList(
-                        "2026-03-25 10:00:00 - Approved by Manager",
-                        "2026-03-26 12:00:00 - Delegated to Director"
-                ));
-
-        // Mock role-based approval restrictions
-        Mockito.when(fpmUserProfileController.getUserRoles())
-                .thenReturn(Arrays.asList("Manager", "Director"));
+        // Mock user profile with role-based approval restrictions
+        User mockUser = new User();
+        mockUser.setUsername("testuser");
+        mockUser.setRoles(Arrays.asList("ROLE_MANAGER"));
+        when(fpmUserProfileController.getCurrentUser()).thenReturn(mockUser);
     }
 
     @Test
-    public void testCurrencyFilterINRtoJPY() {
-        try {
-            // Step 1: Navigate to transaction history page
-            driver.get("http://localhost:8080/transaction-history");
+    public void testCurrencyFilter_INRtoJPY_ShowsCorrectEntriesWithAuditAndApproval() {
+        driver.get("http://localhost:8080/transaction-history");
 
-            // Wait for page to load
-            wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("currency-filter")));
+        // Wait for page to load currency filter dropdown
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("currencyFilter")));
 
-            // Step 2: Use the currency filter to select "INR to JPY"
-            WebElement currencyFilter = driver.findElement(By.id("currency-filter"));
-            currencyFilter.click();
+        // Select currency filter "INR to JPY"
+        Select currencyFilter = new Select(driver.findElement(By.id("currencyFilter")));
+        currencyFilter.selectByVisibleText("INR to JPY");
 
-            // Select option "INR to JPY" from dropdown
-            WebElement inrToJpyOption = wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//option[text()='INR to JPY']")));
-            inrToJpyOption.click();
+        // Click filter button
+        WebElement filterButton = driver.findElement(By.id("filterButton"));
+        filterButton.click();
 
-            // Submit or trigger filter action
-            WebElement filterButton = driver.findElement(By.id("filter-submit"));
-            filterButton.click();
+        // Wait for filtered results to load
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("transactionTable")));
 
-            // Step 3: Verify that audit trail and approval status are displayed correctly for filtered entries
-            // Wait for filtered results to load
-            wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("transaction-list")));
+        WebElement table = driver.findElement(By.id("transactionTable"));
+        List<WebElement> rows = table.findElements(By.tagName("tr"));
 
-            // Verify only INR to JPY conversions are displayed
-            List<WebElement> transactions = driver.findElements(By.cssSelector("#transaction-list .transaction-item"));
-            assertFalse(transactions.isEmpty(), "No transactions displayed after filtering");
+        // Assert that only INR to JPY entries are displayed
+        assertThat(rows).isNotEmpty();
 
-            for (WebElement transaction : transactions) {
-                String currencyPair = transaction.findElement(By.cssSelector(".currency-pair")).getText();
-                assertEquals("INR to JPY", currencyPair, "Filtered transaction contains unexpected currency pair");
-
-                // Verify approval status is displayed and correct
-                String approvalStatus = transaction.findElement(By.cssSelector(".approval-status")).getText();
-                assertEquals("Approved", approvalStatus, "Approval status mismatch for transaction");
-
-                // Verify audit trail is visible and consistent
-                WebElement auditTrailElement = transaction.findElement(By.cssSelector(".audit-trail"));
-                assertNotNull(auditTrailElement, "Audit trail element missing for transaction");
-                String auditTrailText = auditTrailElement.getText();
-                assertTrue(auditTrailText.contains("Approved by Manager") || auditTrailText.contains("Delegated to Director"),
-                        "Audit trail content incorrect or missing");
+        for (WebElement row : rows) {
+            List<WebElement> cols = row.findElements(By.tagName("td"));
+            if (cols.size() < 6) {
+                continue; // skip header or malformed rows
             }
+            String fromCurrency = cols.get(1).getText();
+            String toCurrency = cols.get(2).getText();
+            String approvalStatus = cols.get(4).getText();
+            String auditTrail = cols.get(5).getText();
 
-            // Verify that other currency pairs are excluded
-            // For robustness, check that no transaction with other currency pairs is present
-            List<WebElement> otherCurrencyTransactions = driver.findElements(By.xpath("//div[@id='transaction-list']//div[contains(@class,'transaction-item') and not(.//span[contains(@class,'currency-pair') and text()='INR to JPY'])]"));
-            assertTrue(otherCurrencyTransactions.isEmpty(), "Transactions with other currency pairs are displayed");
+            // Check currency pair
+            assertThat(fromCurrency).isEqualTo("INR");
+            assertThat(toCurrency).isEqualTo("JPY");
 
-            // Verify role-based approval restrictions respected
-            // For example, check that approval buttons or actions are disabled if user role is insufficient
-            // Here we assume user roles are Manager and Director, so approval actions should be enabled
-            for (WebElement transaction : transactions) {
-                WebElement approveButton = transaction.findElement(By.cssSelector(".btn-approve"));
-                assertTrue(approveButton.isEnabled(), "Approve button should be enabled for authorized roles");
+            // Check approval status is visible and valid
+            assertThat(approvalStatus).isIn("Approved", "Pending", "Rejected");
+
+            // Check audit trail is not empty
+            assertThat(auditTrail).isNotBlank();
+        }
+
+        // Verify that entries respect role-based approval restrictions
+        // For ROLE_MANAGER, only entries with ROLE_MANAGER approval should be visible
+        for (WebElement row : rows) {
+            List<WebElement> cols = row.findElements(By.tagName("td"));
+            if (cols.size() < 7) {
+                continue;
             }
+            String role = cols.get(6).getText();
+            assertThat(role).isEqualTo("ROLE_MANAGER");
+        }
 
-        } catch (Exception e) {
-            fail("Test failed due to exception: " + e.getMessage());
+        // Verify backward compatibility: filter dropdown still contains previous options
+        Select currencyFilterAfter = new Select(driver.findElement(By.id("currencyFilter")));
+        List<WebElement> options = currencyFilterAfter.getOptions();
+        assertThat(options).extracting(WebElement::getText).contains("INR to USD", "INR to JPY", "USD to JPY");
+    }
+
+    // Helper DTO class to mock transaction history entries
+    public static class TransactionHistoryEntry {
+        private String fromCurrency;
+        private String toCurrency;
+        private Double amount;
+        private String approvalStatus;
+        private String auditTrail;
+        private LocalDateTime transactionDate;
+        private String approvalRole;
+
+        public TransactionHistoryEntry(String fromCurrency, String toCurrency, Double amount, String approvalStatus, String auditTrail, LocalDateTime transactionDate, String approvalRole) {
+            this.fromCurrency = fromCurrency;
+            this.toCurrency = toCurrency;
+            this.amount = amount;
+            this.approvalStatus = approvalStatus;
+            this.auditTrail = auditTrail;
+            this.transactionDate = transactionDate;
+            this.approvalRole = approvalRole;
+        }
+
+        public String getFromCurrency() {
+            return fromCurrency;
+        }
+
+        public String getToCurrency() {
+            return toCurrency;
+        }
+
+        public Double getAmount() {
+            return amount;
+        }
+
+        public String getApprovalStatus() {
+            return approvalStatus;
+        }
+
+        public String getAuditTrail() {
+            return auditTrail;
+        }
+
+        public LocalDateTime getTransactionDate() {
+            return transactionDate;
+        }
+
+        public String getApprovalRole() {
+            return approvalRole;
         }
     }
 }

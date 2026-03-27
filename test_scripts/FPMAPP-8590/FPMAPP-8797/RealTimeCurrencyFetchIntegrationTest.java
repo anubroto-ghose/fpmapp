@@ -2,8 +2,8 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-8797
  * Epic: FPMAPP-8590
- * Generated on: 2026-03-26 15:34:13
- * 
+ * Generated on: 2026-03-27 08:04:06
+ *
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
  */
@@ -18,26 +18,26 @@ import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.test.context.ActiveProfiles;
 
 import com.webapp.fpmapp.services.CurrencyConvertionController;
 import com.webapp.fpmapp.services.FpmCommonController;
@@ -47,103 +47,152 @@ import com.webapp.fpmapp.services.FpmCommonController;
  * 
  * Preconditions:
  * - System configured with valid third-party currency exchange API.
- * - Configurable interval set (e.g., 5 minutes).
- * - Scheduler service operational.
+ * - Fetch interval set to 5 minutes.
+ * - Scheduler and system clock operational.
  * 
- * This test uses Selenium WebDriver to simulate user interaction and verify UI updates,
- * and mocks CurrencyConvertionController to simulate external API calls.
+ * This test uses Selenium WebDriver to simulate UI interaction and verify logs/audit trail.
+ * It mocks the CurrencyConvertionController to simulate API responses.
  */
-@ExtendWith(SpringExtension.class)
+
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
-@Import(TestConfig.class) // Assuming TestConfig sets up test beans and configs
+@ActiveProfiles("test")
+@ExtendWith(MockitoExtension.class)
 public class RealTimeCurrencyFetchIntegrationTest {
 
-    private static final Logger logger = LoggerFactory.getLogger(RealTimeCurrencyFetchIntegrationTest.class);
-
     private static WebDriver driver;
-
-    @Autowired
-    private FpmCommonController fpmCommonController;
 
     @MockBean
     private CurrencyConvertionController currencyConvertionController;
 
+    @Autowired
+    private FpmCommonController fpmCommonController;
+
+    private static final String BASE_URL = "http://localhost:8080";
+
     private static final int FETCH_INTERVAL_SECONDS = 5 * 60; // 5 minutes
+
+    private static final String LOGS_PAGE_URL = BASE_URL + "/admin/logs";
+
+    private static final String CURRENCY_RATES_API_PATH = "/api/currency/latest";
+
+    private static final AtomicInteger fetchCount = new AtomicInteger(0);
 
     @BeforeAll
     public static void setupClass() {
-        // Setup ChromeDriver in headless mode
-        System.setProperty("webdriver.chrome.driver", "/usr/local/bin/chromedriver");
+        // Setup ChromeDriver (headless for CI)
+        System.setProperty("webdriver.chrome.driver", "./chromedriver");
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--headless");
         options.addArguments("--disable-gpu");
         options.addArguments("--window-size=1920,1080");
         driver = new ChromeDriver(options);
-        logger.info("WebDriver initialized.");
     }
 
     @AfterAll
     public static void tearDownClass() {
         if (driver != null) {
             driver.quit();
-            logger.info("WebDriver closed.");
         }
     }
 
+    /**
+     * Test verifies that the system fetches real-time currency rates automatically at configured intervals,
+     * logs each fetch event with timestamp, and stores data correctly.
+     */
     @Test
-    public void testRealTimeCurrencyFetchAtConfiguredIntervals() throws Exception {
-        // Mock the currencyConvertionController to simulate successful fetch
-        when(currencyConvertionController.fetchRealTimeRates()).thenAnswer(invocation -> {
-            logger.info("Mock fetchRealTimeRates called at {}", Instant.now());
-            // Simulate fetched data
-            return Collections.singletonMap("USD_EUR", 0.85);
+    public void testRealTimeCurrencyFetchAtConfiguredIntervals() throws InterruptedException {
+        // Mock the currency conversion API response
+        when(currencyConvertionController.fetchLatestRates()).thenAnswer(invocation -> {
+            fetchCount.incrementAndGet();
+            Map<String, Double> rates = new HashMap<>();
+            rates.put("USD", 1.0);
+            rates.put("EUR", 0.85);
+            rates.put("JPY", 110.0);
+            return rates;
         });
 
-        // Start the system scheduler (assumed to be started by Spring Boot context)
-        // Navigate to a UI page that shows last fetch timestamp or status
-        driver.get("http://localhost:8080/currency-rates");
+        // Step 1: Start the system and ensure scheduler service is running
+        driver.get(BASE_URL + "/login");
 
-        // Wait for the page to load and display initial data
-        TimeUnit.SECONDS.sleep(2);
+        // Simulate login as admin to access logs
+        WebElement usernameInput = driver.findElement(By.id("username"));
+        WebElement passwordInput = driver.findElement(By.id("password"));
+        WebElement loginButton = driver.findElement(By.id("loginBtn"));
 
-        // Capture initial fetch timestamp from UI
-        WebElement lastFetchElement = driver.findElement(By.id("lastFetchTimestamp"));
-        String initialTimestampText = lastFetchElement.getText();
-        logger.info("Initial last fetch timestamp from UI: {}", initialTimestampText);
+        usernameInput.sendKeys("admin");
+        passwordInput.sendKeys("admin123");
+        loginButton.click();
 
-        // Wait for longer than the configured interval to allow at least one scheduled fetch
-        int waitSeconds = FETCH_INTERVAL_SECONDS + 30; // 5 min + 30 sec buffer
-        logger.info("Waiting {} seconds to observe scheduled fetches...", waitSeconds);
-        TimeUnit.SECONDS.sleep(waitSeconds);
+        // Wait for redirect to dashboard
+        Thread.sleep(2000);
+        assertThat(driver.getCurrentUrl()).contains("/dashboard");
 
-        // Refresh the page to get updated fetch timestamp
-        driver.navigate().refresh();
-        TimeUnit.SECONDS.sleep(2);
+        // Step 2: Observe system behavior over a period longer than configured interval
+        // Wait for 2 intervals + buffer (e.g., 11 minutes)
+        int waitSeconds = FETCH_INTERVAL_SECONDS * 2 + 60;
+        Instant start = Instant.now();
 
-        WebElement updatedFetchElement = driver.findElement(By.id("lastFetchTimestamp"));
-        String updatedTimestampText = updatedFetchElement.getText();
-        logger.info("Updated last fetch timestamp from UI: {}", updatedTimestampText);
+        // Poll every 30 seconds to check fetch count
+        int polls = waitSeconds / 30;
+        int lastFetchCount = 0;
+        boolean fetchOccurred = false;
 
-        // Assert that the timestamp has changed indicating a new fetch
-        assertThat(updatedTimestampText).isNotEmpty();
-        assertThat(updatedTimestampText).isNotEqualTo(initialTimestampText);
+        for (int i = 0; i < polls; i++) {
+            Thread.sleep(30000); // 30 seconds
+            int currentCount = fetchCount.get();
+            if (currentCount > lastFetchCount) {
+                fetchOccurred = true;
+                lastFetchCount = currentCount;
+            }
+        }
 
-        // Verify that the fetchRealTimeRates method was called at least twice (initial + scheduled)
-        verify(currencyConvertionController, times(2)).fetchRealTimeRates();
+        Instant end = Instant.now();
+        Duration elapsed = Duration.between(start, end);
 
-        // Verify audit logs contain successful fetch events
-        List<String> auditLogs = fpmCommonController.getAuditLogsForEvent("CURRENCY_RATE_FETCH");
-        assertThat(auditLogs).isNotEmpty();
-        boolean foundRecentFetch = auditLogs.stream().anyMatch(log -> log.contains("SUCCESS") && log.contains("currency rates fetched"));
-        assertThat(foundRecentFetch).isTrue();
+        // Step 3: Verify system automatically fetched real-time currency rates at each configured interval
+        assertThat(fetchCount.get())
+            .withFailMessage("Expected at least 2 fetches but got %d", fetchCount.get())
+            .isGreaterThanOrEqualTo(2);
 
-        // Verify no errors in audit logs
-        boolean foundErrors = auditLogs.stream().anyMatch(log -> log.toLowerCase().contains("error") || log.toLowerCase().contains("fail"));
-        assertThat(foundErrors).isFalse();
+        // Step 4: Check logs or audit trails for successful fetch events
+        driver.get(LOGS_PAGE_URL);
+        Thread.sleep(2000); // wait for logs page to load
+
+        // Verify logs contain fetch events with timestamps
+        // Assuming logs are in a table with id 'logsTable' and each row has class 'log-entry'
+        boolean foundFetchLog = false;
+        for (WebElement row : driver.findElements(By.cssSelector("#logsTable .log-entry"))) {
+            String logText = row.getText();
+            if (logText.contains("Currency rates fetched successfully")) {
+                foundFetchLog = true;
+                // Verify timestamp format (simple check for date/time presence)
+                assertThat(logText).matches(".*\\d{4}-\\d{2}-\\d{2}.*\\d{2}:\\d{2}:\\d{2}.*");
+            }
+        }
+
+        assertThat(foundFetchLog).withFailMessage("No successful currency fetch log entries found").isTrue();
+
+        // Verify no error logs
+        boolean foundErrorLog = false;
+        for (WebElement row : driver.findElements(By.cssSelector("#logsTable .log-entry"))) {
+            String logText = row.getText().toLowerCase();
+            if (logText.contains("error") || logText.contains("exception") || logText.contains("fail")) {
+                foundErrorLog = true;
+                break;
+            }
+        }
+
+        assertThat(foundErrorLog).withFailMessage("Error logs found during currency fetch process").isFalse();
 
         // Verify fetched data stored correctly in DB via service call
-        Double storedRate = fpmCommonController.getStoredExchangeRate("USD", "EUR");
-        assertThat(storedRate).isNotNull();
-        assertThat(storedRate).isEqualTo(0.85);
+        Map<String, Double> storedRates = fpmCommonController.getLatestCurrencyRates();
+        assertThat(storedRates).isNotNull();
+        assertThat(storedRates).containsKeys("USD", "EUR", "JPY");
+        assertThat(storedRates.get("USD")).isEqualTo(1.0);
+        assertThat(storedRates.get("EUR")).isEqualTo(0.85);
+        assertThat(storedRates.get("JPY")).isEqualTo(110.0);
+
+        // Verify the mocked controller was called at least twice
+        verify(currencyConvertionController, times(fetchCount.get())).fetchLatestRates();
     }
 }

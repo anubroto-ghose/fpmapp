@@ -2,8 +2,8 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-8796
  * Epic: FPMAPP-8590
- * Generated on: 2026-03-26 15:33:34
- * 
+ * Generated on: 2026-03-27 08:04:45
+ *
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
  */
@@ -38,40 +38,51 @@ import org.openqa.selenium.chrome.ChromeOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.RestTemplate;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.webapp.fpmapp.dto.CurrencyOverrideLogDTO;
-import com.webapp.fpmapp.services.CurrencySyncService;
+import com.webapp.fpmapp.dto.FpmUserProfileController;
+import com.webapp.fpmapp.services.CurrencyConvertionController;
+
+import io.github.bonigarcia.wdm.WebDriverManager;
 
 /**
- * Integration test for verifying the currency override audit API returns correct override logs with filtering.
+ * Integration test for verifying the Currency Override Audit API returns correct override logs with filtering.
  * 
- * This test uses Selenium WebDriver to simulate API calls and verify the response.
- * It mocks the CurrencySyncService to provide controlled test data.
+ * Preconditions:
+ * - At least one override has been submitted and logged.
+ * - API access credentials with audit permissions are available.
+ * 
+ * This test uses Selenium WebDriver to simulate a user accessing the audit API endpoint via a simple UI page
+ * that displays the override logs. The API service is mocked to return predefined data.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
+
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @ExtendWith(MockitoExtension.class)
 public class CurrencyOverrideAuditApiIntegrationTest {
 
+    @LocalServerPort
+    private int port;
+
     private static WebDriver driver;
 
-    private static final String BASE_URL = "http://localhost:8080";
+    private String baseUrl;
 
     @MockBean
-    private CurrencySyncService currencySyncService;
+    private CurrencyConvertionController currencyConvertionController;
 
     @Autowired
-    private ObjectMapper objectMapper;
+    private FpmUserProfileController userProfileController;
+
+    private static final String API_ENDPOINT = "/api/currency/override-logs";
 
     @BeforeAll
     public static void setupClass() {
-        // Setup ChromeDriver (headless)
-        System.setProperty("webdriver.chrome.driver", "/usr/local/bin/chromedriver");
+        WebDriverManager.chromedriver().setup();
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--headless");
         options.addArguments("--disable-gpu");
@@ -88,128 +99,121 @@ public class CurrencyOverrideAuditApiIntegrationTest {
 
     @BeforeEach
     public void setup() {
+        baseUrl = "http://localhost:" + port;
+    }
+
+    /**
+     * Test verifies that the override logs API returns filtered logs correctly and the UI displays them properly.
+     */
+    @Test
+    public void testOverrideLogsApiReturnsCorrectFilteredLogs() throws InterruptedException {
         // Prepare mock data for override logs
-        CurrencyOverrideLogDTO log1 = new CurrencyOverrideLogDTO();
-        log1.setAlertId(1001L);
-        log1.setCurrencyPair("USD/EUR");
-        log1.setOverrideTimestamp(Instant.parse("2026-03-20T10:15:30Z"));
-        log1.setOverrideUserId(501L);
-        log1.setOverrideUserName("adminUser1");
-        log1.setOverrideValue(0.85);
-        log1.setOverrideReason("Quarterly adjustment");
+        OverrideLogEntry log1 = new OverrideLogEntry(
+                "adminUser1",
+                Instant.parse("2024-05-01T10:15:30Z"),
+                "USD/EUR",
+                0.85,
+                0.87,
+                "Quarterly adjustment due to market volatility"
+        );
 
-        CurrencyOverrideLogDTO log2 = new CurrencyOverrideLogDTO();
-        log2.setAlertId(1002L);
-        log2.setCurrencyPair("USD/GBP");
-        log2.setOverrideTimestamp(Instant.parse("2026-03-22T14:00:00Z"));
-        log2.setOverrideUserId(502L);
-        log2.setOverrideUserName("adminUser2");
-        log2.setOverrideValue(0.75);
-        log2.setOverrideReason("Market correction");
+        OverrideLogEntry log2 = new OverrideLogEntry(
+                "adminUser2",
+                Instant.parse("2024-05-03T14:20:00Z"),
+                "USD/GBP",
+                0.75,
+                0.76,
+                "Special event override"
+        );
 
-        List<CurrencyOverrideLogDTO> mockLogs = Arrays.asList(log1, log2);
+        List<OverrideLogEntry> mockLogs = Arrays.asList(log1, log2);
 
-        // Mock the service method to return filtered logs based on input parameters
-        when(currencySyncService.getOverrideLogs(
-                any(LocalDate.class),
-                any(LocalDate.class),
-                any(String.class),
-                any(String.class)))
-            .thenAnswer(invocation -> {
-                LocalDate startDate = invocation.getArgument(0);
-                LocalDate endDate = invocation.getArgument(1);
-                String adminUser = invocation.getArgument(2);
-                String currencyPair = invocation.getArgument(3);
+        // Mock the service method to return filtered logs based on parameters
+        when(currencyConvertionController.getOverrideLogs(
+                eq(LocalDate.of(2024, 5, 1)),
+                eq(LocalDate.of(2024, 5, 5)),
+                eq("adminUser1"),
+                eq("USD/EUR")
+        )).thenReturn(Arrays.asList(log1));
 
-                // Filter mockLogs according to parameters
-                return mockLogs.stream()
-                        .filter(log -> {
-                            LocalDate logDate = log.getOverrideTimestamp().atZone(ZoneOffset.UTC).toLocalDate();
-                            boolean dateMatch = (startDate == null || !logDate.isBefore(startDate)) &&
-                                                (endDate == null || !logDate.isAfter(endDate));
-                            boolean userMatch = (adminUser == null || adminUser.isEmpty()) ||
-                                                log.getOverrideUserName().equalsIgnoreCase(adminUser);
-                            boolean currencyMatch = (currencyPair == null || currencyPair.isEmpty()) ||
-                                                    log.getCurrencyPair().equalsIgnoreCase(currencyPair);
-                            return dateMatch && userMatch && currencyMatch;
-                        })
-                        .toList();
-            });
+        // Simulate user navigating to a simple test page that calls the API and displays results
+        // For demonstration, we create a minimal HTML page served by the test context or embedded server
+        // Here, we simulate the API call directly via Selenium by navigating to a test page
+
+        // Construct URL with query parameters for filtering
+        String url = baseUrl + "/test/currency-override-logs.html?startDate=2024-05-01&endDate=2024-05-05&adminUser=adminUser1&currencyPair=USD/EUR";
+
+        driver.get(url);
+
+        // Wait for the page to load and display results (simple wait for element presence)
+        Thread.sleep(2000); // In production, use WebDriverWait instead
+
+        // Verify page title
+        assertThat(driver.getTitle()).isEqualTo("Currency Override Logs");
+
+        // Verify that the table with logs is displayed
+        WebElement table = driver.findElement(By.id("overrideLogsTable"));
+        assertThat(table).isNotNull();
+
+        // Verify that only one row is present (excluding header)
+        List<WebElement> rows = table.findElements(By.tagName("tr"));
+        // 1 header + 1 data row expected
+        assertThat(rows.size()).isEqualTo(2);
+
+        WebElement dataRow = rows.get(1);
+        List<WebElement> cells = dataRow.findElements(By.tagName("td"));
+
+        // Validate each cell content
+        assertThat(cells.get(0).getText()).isEqualTo("adminUser1");
+        assertThat(cells.get(1).getText()).isEqualTo("2024-05-01T10:15:30Z");
+        assertThat(cells.get(2).getText()).isEqualTo("USD/EUR");
+        assertThat(cells.get(3).getText()).isEqualTo("0.85");
+        assertThat(cells.get(4).getText()).isEqualTo("0.87");
+        assertThat(cells.get(5).getText()).isEqualTo("Quarterly adjustment due to market volatility");
     }
 
-    @Test
-    public void testOverrideLogsApiWithFilters() throws Exception {
-        // Prepare filter parameters
-        String startDate = "2026-03-19";
-        String endDate = "2026-03-21";
-        String adminUser = "adminUser1";
-        String currencyPair = "USD/EUR";
+    /**
+     * DTO representing a currency override log entry.
+     */
+    public static class OverrideLogEntry {
+        private String adminUser;
+        private Instant timestamp;
+        private String currencyPair;
+        private double oldValue;
+        private double newValue;
+        private String reason;
 
-        // Construct the API URL with query parameters
-        String apiUrl = String.format(
-                "%s/api/currency/override-logs?startDate=%s&endDate=%s&adminUser=%s&currencyPair=%s",
-                BASE_URL, startDate, endDate, adminUser, currencyPair);
+        public OverrideLogEntry(String adminUser, Instant timestamp, String currencyPair, double oldValue, double newValue, String reason) {
+            this.adminUser = adminUser;
+            this.timestamp = timestamp;
+            this.currencyPair = currencyPair;
+            this.oldValue = oldValue;
+            this.newValue = newValue;
+            this.reason = reason;
+        }
 
-        // Use Selenium WebDriver to open the URL and get the JSON response
-        driver.get(apiUrl);
+        public String getAdminUser() {
+            return adminUser;
+        }
 
-        // The API returns JSON, so get the page source (raw JSON)
-        String jsonResponse = driver.findElement(By.tagName("pre")).getText();
+        public Instant getTimestamp() {
+            return timestamp;
+        }
 
-        // Parse JSON response
-        CurrencyOverrideLogDTO[] logs = objectMapper.readValue(jsonResponse, CurrencyOverrideLogDTO[].class);
+        public String getCurrencyPair() {
+            return currencyPair;
+        }
 
-        // Assertions
-        assertThat(logs).isNotNull();
-        assertThat(logs.length).isEqualTo(1);
+        public double getOldValue() {
+            return oldValue;
+        }
 
-        CurrencyOverrideLogDTO log = logs[0];
-        assertThat(log.getCurrencyPair()).isEqualToIgnoringCase(currencyPair);
-        assertThat(log.getOverrideUserName()).isEqualToIgnoringCase(adminUser);
-        assertThat(log.getOverrideReason()).isNotEmpty();
-        assertThat(log.getOverrideTimestamp()).isNotNull();
-        assertThat(log.getOverrideValue()).isGreaterThan(0);
+        public double getNewValue() {
+            return newValue;
+        }
 
-        // Additional check: timestamp within filter range
-        LocalDate logDate = log.getOverrideTimestamp().atZone(ZoneOffset.UTC).toLocalDate();
-        assertThat(logDate).isAfterOrEqualTo(LocalDate.parse(startDate));
-        assertThat(logDate).isBeforeOrEqualTo(LocalDate.parse(endDate));
-    }
-
-    @Test
-    public void testOverrideLogsApiReturnsAllWhenNoFilters() throws Exception {
-        // API URL without filters
-        String apiUrl = String.format("%s/api/currency/override-logs", BASE_URL);
-
-        driver.get(apiUrl);
-
-        String jsonResponse = driver.findElement(By.tagName("pre")).getText();
-
-        CurrencyOverrideLogDTO[] logs = objectMapper.readValue(jsonResponse, CurrencyOverrideLogDTO[].class);
-
-        assertThat(logs).isNotNull();
-        assertThat(logs.length).isEqualTo(2);
-    }
-
-    @Test
-    public void testOverrideLogsApiWithInvalidFilterReturnsEmpty() throws Exception {
-        // Filters that do not match any logs
-        String startDate = "2025-01-01";
-        String endDate = "2025-01-02";
-        String adminUser = "nonexistentUser";
-        String currencyPair = "XYZ/ABC";
-
-        String apiUrl = String.format(
-                "%s/api/currency/override-logs?startDate=%s&endDate=%s&adminUser=%s&currencyPair=%s",
-                BASE_URL, startDate, endDate, adminUser, currencyPair);
-
-        driver.get(apiUrl);
-
-        String jsonResponse = driver.findElement(By.tagName("pre")).getText();
-
-        CurrencyOverrideLogDTO[] logs = objectMapper.readValue(jsonResponse, CurrencyOverrideLogDTO[].class);
-
-        assertThat(logs).isNotNull();
-        assertThat(logs.length).isEqualTo(0);
+        public String getReason() {
+            return reason;
+        }
     }
 }

@@ -1,26 +1,25 @@
 # Test Case ID: TEST_CASE
 # Generated from Jira Ticket: FPMAPP-8810
 # Epic: FPMAPP-8590
-# Generated on: 2026-03-26 15:44:37
+# Generated on: 2026-03-27 07:55:26
 #
 # This is an auto-generated Cucumber feature file.
 # Modify with caution as changes may be overwritten.
 
-Feature: Real-time in-app notification for approval delegation
+Feature: In-app notification for approval delegation event
   As a user with delegation permissions
-  I want to receive immediate, actionable in-app notifications when an approval request is delegated to me
-  So that I can promptly view and act on delegated approvals
+  I want to receive immediate, real-time feedback when an approval is delegated to me
+  So that I can act on delegated approvals promptly
 
   Background:
-    Given the user "delegatedUser" is logged into the FPMApplication
-    And the user has delegation permissions
-    And the WebSocket connection is active for user "delegatedUser"
+    Given the user "delegateUser" is logged into the FPM application with delegation permissions
+    And the WebSocket connection is active
 
   Scenario: Receive and interact with in-app notification upon approval delegation
-    Given another user "managerUser" has delegated approval request "approval-12345" to user "delegatedUser"
-    When the user "delegatedUser" views the application dashboard
-    Then the user should receive an in-app notification about the delegation
-    And the notification should contain the message "You have been delegated an approval request."
-    And the notification should indicate it is from "managerUser"
-    When the user clicks on the notification action to view the approval
-    Then the user should be navigated to the approval detail page for "approval-12345"
+    When another user "managerUser" delegates an approval request to "delegateUser"
+    Then "delegateUser" should receive an in-app notification immediately
+    And the notification should clearly indicate the delegation event and relevant details
+    And the notification should be actionable
+    When "delegateUser" interacts with the notification
+    Then the approval details related to the delegation should be displayed
+

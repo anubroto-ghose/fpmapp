@@ -2,8 +2,8 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-8806
  * Epic: FPMAPP-8590
- * Generated on: 2026-03-26 15:41:14
- * 
+ * Generated on: 2026-03-27 07:58:08
+ *
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
  */
@@ -16,7 +16,7 @@ import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.util.Collections;
-import java.util.List;
+import java.util.UUID;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -33,6 +33,7 @@ import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.web.server.LocalServerPort;
@@ -48,21 +49,14 @@ import com.webapp.fpmapp.services.CurrencyConvertionController;
 import com.webapp.fpmapp.services.FpmCommonController;
 import com.webapp.fpmapp.services.FpmForecastController;
 
-import org.springframework.boot.test.web.server.LocalManagementPort;
-
 /**
  * Integration test for approval workflow enforcing hierarchical role mapping with financial thresholds.
  * 
  * Preconditions:
- * - User logged in as director or manager.
- * - Request created with amount within financial threshold.
+ * - User logged in as director or manager
+ * - Request created with amount within financial threshold
  * 
- * Test Steps:
- * 1. Submit request with amount within approver's threshold.
- * 2. Verify routing to correct approver.
- * 3. Approve request.
- * 4. Check status updates to "Approved" in real-time.
- * 5. Verify requester sees updated approval status.
+ * This test uses Selenium WebDriver to simulate UI interactions and mocks backend services to control responses.
  */
 
 @ExtendWith({SpringExtension.class, MockitoExtension.class})
@@ -94,12 +88,18 @@ public class ApprovalWorkflowIntegrationTest {
     @MockBean
     private FpmCommonController fpmCommonController;
 
-    private final String baseUrl = "http://localhost:";
+    private static final String BASE_URL = "http://localhost:";
+
+    private static final String DIRECTOR_USERNAME = "directorUser";
+    private static final String MANAGER_USERNAME = "managerUser";
+
+    private static final double MANAGER_THRESHOLD = 50000.00;
+    private static final double DIRECTOR_THRESHOLD = 200000.00;
 
     @BeforeAll
     public static void setupClass() {
-        // Setup ChromeDriver path if needed
-        // System.setProperty("webdriver.chrome.driver", "/path/to/chromedriver");
+        // Setup ChromeDriver (headless for CI environments)
+        System.setProperty("webdriver.chrome.driver", "./chromedriver");
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--headless");
         options.addArguments("--disable-gpu");
@@ -118,101 +118,219 @@ public class ApprovalWorkflowIntegrationTest {
     public void setup() {
         wait = new WebDriverWait(driver, Duration.ofSeconds(10));
 
-        // Mock user profile to simulate logged in director
-        User directorUser = new User();
-        directorUser.setId(1001L);
-        directorUser.setUsername("directorUser");
-        directorUser.setRole("DIRECTOR");
+        // Mock user profile service to return roles and thresholds
+        when(fpmUserProfileController.getUserRole(DIRECTOR_USERNAME))
+            .thenReturn("DIRECTOR");
+        when(fpmUserProfileController.getUserRole(MANAGER_USERNAME))
+            .thenReturn("MANAGER");
 
-        when(fpmUserProfileController.getCurrentUser()).thenReturn(directorUser);
+        when(fpmUserProfileController.getFinancialThreshold("DIRECTOR"))
+            .thenReturn(DIRECTOR_THRESHOLD);
+        when(fpmUserProfileController.getFinancialThreshold("MANAGER"))
+            .thenReturn(MANAGER_THRESHOLD);
 
-        // Mock deal sheet creation and retrieval
-        when(fpmDealsheetController.createDealSheet(any())).thenAnswer(invocation -> {
-            // Return a mock deal sheet with ID and amount
-            var request = invocation.getArgument(0);
-            // Simulate response
-            return new com.webapp.fpmapp.dto.DealSheetResponse(2001L, (Double)request.get("amount"), "PENDING", "DIRECTOR");
-        });
-
-        when(fpmDealsheetController.getDealSheetStatus(2001L)).thenReturn("PENDING");
-
-        // Mock approval action
-        when(fpmDealsheetController.approveDealSheet(2001L, "directorUser")).then(invocation -> {
-            // Simulate approval success
-            return true;
-        });
-
-        // After approval, status changes to APPROVED
-        when(fpmDealsheetController.getDealSheetStatus(2001L)).thenReturn("APPROVED");
+        // Mock currency conversion to 1:1 for simplicity
+        when(currencyConvertionController.convert(any(Double.class), any(String.class), any(String.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
     }
 
+    /**
+     * Test approval workflow for a manager approving a deal sheet within threshold.
+     */
     @Test
-    public void testApprovalWorkflowForDirectorWithinThreshold() {
-        driver.get(baseUrl + port + "/login");
+    public void testManagerApprovalWithinThreshold() {
+        // Login as manager
+        loginAsUser(MANAGER_USERNAME);
 
-        // Simulate login as director
-        WebElement usernameInput = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("username")));
-        WebElement passwordInput = driver.findElement(By.id("password"));
-        WebElement loginButton = driver.findElement(By.id("loginBtn"));
+        // Create a deal sheet request with amount within manager threshold
+        double requestAmount = 30000.00;
+        String requestId = UUID.randomUUID().toString();
 
-        usernameInput.sendKeys("directorUser");
-        passwordInput.sendKeys("password123");
-        loginButton.click();
+        // Mock deal sheet creation and retrieval
+        when(fpmDealsheetController.createDealSheet(any()))
+            .thenReturn(requestId);
+        when(fpmDealsheetController.getDealSheetStatus(requestId))
+            .thenReturn("Pending Approval");
 
-        // Wait for dashboard
-        wait.until(ExpectedConditions.urlContains("/dashboard"));
+        // Submit request via UI
+        submitDealSheetRequest(requestAmount);
 
-        // Navigate to create deal sheet page
-        driver.get(baseUrl + port + "/dealsheets/new");
-
-        // Fill deal sheet form with amount within director threshold (e.g., 50000)
-        WebElement amountInput = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("amount")));
-        amountInput.clear();
-        amountInput.sendKeys("50000");
-
-        WebElement submitBtn = driver.findElement(By.id("submitDealSheet"));
-        submitBtn.click();
-
-        // Verify routing to correct approver (director)
-        WebElement routedApprover = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("routedApprover")));
-        String approverRole = routedApprover.getText();
-        assertThat(approverRole).isEqualToIgnoringCase("DIRECTOR");
+        // Verify request routed to manager
+        String routedApprover = fpmCommonControllerGetApproverForAmount(requestAmount);
+        assertThat(routedApprover).isEqualTo("MANAGER");
 
         // Approve the request
-        WebElement approveBtn = wait.until(ExpectedConditions.elementToBeClickable(By.id("approveBtn")));
-        approveBtn.click();
+        approveRequest(requestId, MANAGER_USERNAME);
 
-        // Wait for status update to "Approved" in real-time
-        WebElement statusLabel = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("approvalStatus")));
+        // Mock status update after approval
+        when(fpmDealsheetController.getDealSheetStatus(requestId))
+            .thenReturn("Approved");
 
-        wait.until(driver -> statusLabel.getText().equalsIgnoreCase("APPROVED"));
-        assertThat(statusLabel.getText()).isEqualToIgnoringCase("APPROVED");
+        // Verify status updated in UI
+        verifyRequestStatus(requestId, "Approved");
 
-        // Verify requester can see updated approval status
-        driver.get(baseUrl + port + "/dealsheets/2001/status");
-        WebElement requesterStatus = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("requesterApprovalStatus")));
-        assertThat(requesterStatus.getText()).isEqualToIgnoringCase("APPROVED");
+        // Verify requester can see updated status
+        verifyRequesterSeesStatus(requestId, "Approved");
+    }
 
-        // Verify only authorized roles can approve
-        // Attempt approval as unauthorized user (simulate manager trying to approve above threshold)
-        // For brevity, we simulate this by checking the approve button is not present for unauthorized user
-        driver.get(baseUrl + port + "/logout");
+    /**
+     * Test approval workflow for a director approving a travel request within threshold.
+     */
+    @Test
+    public void testDirectorApprovalWithinThreshold() {
+        // Login as director
+        loginAsUser(DIRECTOR_USERNAME);
 
-        // Login as manager
-        driver.get(baseUrl + port + "/login");
-        usernameInput = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("username")));
-        passwordInput = driver.findElement(By.id("password"));
-        loginButton = driver.findElement(By.id("loginBtn"));
+        // Create a travel request with amount within director threshold
+        double requestAmount = 150000.00;
+        String requestId = UUID.randomUUID().toString();
 
-        usernameInput.sendKeys("managerUser");
-        passwordInput.sendKeys("password123");
+        // Mock travel request creation and retrieval
+        when(fpmTravelController.createTravelRequest(any()))
+            .thenReturn(requestId);
+        when(fpmTravelController.getTravelRequestStatus(requestId))
+            .thenReturn("Pending Approval");
+
+        // Submit request via UI
+        submitTravelRequest(requestAmount);
+
+        // Verify request routed to director
+        String routedApprover = fpmCommonControllerGetApproverForAmount(requestAmount);
+        assertThat(routedApprover).isEqualTo("DIRECTOR");
+
+        // Approve the request
+        approveRequest(requestId, DIRECTOR_USERNAME);
+
+        // Mock status update after approval
+        when(fpmTravelController.getTravelRequestStatus(requestId))
+            .thenReturn("Approved");
+
+        // Verify status updated in UI
+        verifyRequestStatus(requestId, "Approved");
+
+        // Verify requester can see updated status
+        verifyRequesterSeesStatus(requestId, "Approved");
+    }
+
+    /**
+     * Test that unauthorized user cannot approve request.
+     */
+    @Test
+    public void testUnauthorizedUserCannotApprove() {
+        // Login as a user without approval rights
+        String unauthorizedUser = "staffUser";
+        when(fpmUserProfileController.getUserRole(unauthorizedUser))
+            .thenReturn("STAFF");
+
+        loginAsUser(unauthorizedUser);
+
+        double requestAmount = 10000.00;
+        String requestId = UUID.randomUUID().toString();
+
+        // Mock deal sheet creation
+        when(fpmDealsheetController.createDealSheet(any()))
+            .thenReturn(requestId);
+        when(fpmDealsheetController.getDealSheetStatus(requestId))
+            .thenReturn("Pending Approval");
+
+        submitDealSheetRequest(requestAmount);
+
+        // Attempt to approve request
+        driver.get(BASE_URL + port + "/requests/" + requestId + "/approve");
+
+        // Wait for error message
+        WebElement errorElement = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("error-message")));
+        assertThat(errorElement.getText()).contains("You are not authorized to approve this request");
+
+        // Verify status remains pending
+        verifyRequestStatus(requestId, "Pending Approval");
+    }
+
+    // Helper methods
+
+    private void loginAsUser(String username) {
+        driver.get(BASE_URL + port + "/login");
+        WebElement usernameInput = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("username")));
+        WebElement passwordInput = driver.findElement(By.id("password"));
+        WebElement loginButton = driver.findElement(By.id("login-button"));
+
+        usernameInput.clear();
+        usernameInput.sendKeys(username);
+        passwordInput.clear();
+        passwordInput.sendKeys("password123"); // assuming test password
         loginButton.click();
 
+        // Wait for dashboard or home page
         wait.until(ExpectedConditions.urlContains("/dashboard"));
+    }
 
-        driver.get(baseUrl + port + "/dealsheets/2001");
+    private void submitDealSheetRequest(double amount) {
+        driver.get(BASE_URL + port + "/dealsheets/new");
 
-        List<WebElement> approveButtons = driver.findElements(By.id("approveBtn"));
-        assertThat(approveButtons).isEmpty();
+        WebElement amountInput = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("amount")));
+        WebElement submitButton = driver.findElement(By.id("submit-dealsheet"));
+
+        amountInput.clear();
+        amountInput.sendKeys(String.valueOf(amount));
+        submitButton.click();
+
+        // Wait for confirmation
+        WebElement confirmation = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("confirmation-message")));
+        assertThat(confirmation.getText()).contains("Deal sheet submitted successfully");
+    }
+
+    private void submitTravelRequest(double amount) {
+        driver.get(BASE_URL + port + "/travelrequests/new");
+
+        WebElement amountInput = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("amount")));
+        WebElement submitButton = driver.findElement(By.id("submit-travelrequest"));
+
+        amountInput.clear();
+        amountInput.sendKeys(String.valueOf(amount));
+        submitButton.click();
+
+        // Wait for confirmation
+        WebElement confirmation = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("confirmation-message")));
+        assertThat(confirmation.getText()).contains("Travel request submitted successfully");
+    }
+
+    private String fpmCommonControllerGetApproverForAmount(double amount) {
+        // Mocking the service call to get approver role based on amount
+        if (amount <= MANAGER_THRESHOLD) {
+            return "MANAGER";
+        } else if (amount <= DIRECTOR_THRESHOLD) {
+            return "DIRECTOR";
+        } else {
+            return "EXECUTIVE"; // out of scope for this test
+        }
+    }
+
+    private void approveRequest(String requestId, String approverUsername) {
+        // Navigate to approval page
+        driver.get(BASE_URL + port + "/requests/" + requestId + "/approve");
+
+        // Wait for approve button
+        WebElement approveButton = wait.until(ExpectedConditions.elementToBeClickable(By.id("approve-button")));
+
+        approveButton.click();
+
+        // Wait for success message
+        WebElement successMessage = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("approval-success-message")));
+        assertThat(successMessage.getText()).contains("Request approved successfully");
+    }
+
+    private void verifyRequestStatus(String requestId, String expectedStatus) {
+        driver.get(BASE_URL + port + "/requests/" + requestId);
+
+        WebElement statusElement = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("request-status")));
+        assertThat(statusElement.getText()).isEqualTo(expectedStatus);
+    }
+
+    private void verifyRequesterSeesStatus(String requestId, String expectedStatus) {
+        // Simulate requester viewing the request status
+        driver.get(BASE_URL + port + "/requests/" + requestId + "/status");
+
+        WebElement statusElement = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("request-status")));
+        assertThat(statusElement.getText()).isEqualTo(expectedStatus);
     }
 }

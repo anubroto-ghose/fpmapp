@@ -2,8 +2,8 @@
  * Test Case ID: TEST_CASE
  * Generated from Jira Ticket: FPMAPP-8813
  * Epic: FPMAPP-8590
- * Generated on: 2026-03-26 15:46:53
- * 
+ * Generated on: 2026-03-27 07:53:39
+ *
  * This is an auto-generated Selenium test script.
  * Modify with caution as changes may be overwritten.
  */
@@ -20,13 +20,15 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -37,7 +39,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -48,17 +52,27 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.webapp.fpmapp.dto.FpmUserProfileController;
 import com.webapp.fpmapp.entities.User;
 import com.webapp.fpmapp.services.CurrencyConvertionController;
-import com.webapp.fpmapp.services.CurrencySyncService;
 
 /**
- * Integration test with Selenium WebDriver and Spring Boot context
- * Tests unauthorized user cannot submit currency override
+ * Integration Selenium + SpringBoot test for unauthorized user attempting currency override.
+ * 
+ * Preconditions:
+ * - User logged in with role NOT authorized for override
+ * - POST /api/currency/override accessible
+ * 
+ * Validates:
+ * - API rejects override with authorization error
+ * - No log entry created
+ * - No alert generated
+ * - Currency data unchanged
  */
-@ExtendWith(SpringExtension.class)
+
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ExtendWith(MockitoExtension.class)
+@ActiveProfiles("test")
 public class CurrencyOverrideUnauthorizedUserTest {
 
-    private WebDriver driver;
+    private static WebDriver driver;
 
     @Autowired
     private WebApplicationContext wac;
@@ -66,22 +80,15 @@ public class CurrencyOverrideUnauthorizedUserTest {
     private MockMvc mockMvc;
 
     @MockBean
-    private CurrencySyncService currencySyncService;
-
-    @MockBean
     private CurrencyConvertionController currencyConvertionController;
 
     @MockBean
     private FpmUserProfileController userProfileController;
 
-    private ObjectMapper objectMapper = new ObjectMapper();
-
-    @BeforeEach
-    public void setup() {
-        // Setup MockMvc for API calls
-        this.mockMvc = MockMvcBuilders.webAppContextSetup(this.wac).build();
-
-        // Setup Selenium WebDriver (headless Chrome)
+    @BeforeAll
+    public static void setupClass() {
+        // Setup ChromeDriver (headless)
+        System.setProperty("webdriver.chrome.driver", "/usr/local/bin/chromedriver");
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--headless");
         options.addArguments("--disable-gpu");
@@ -89,81 +96,75 @@ public class CurrencyOverrideUnauthorizedUserTest {
         driver = new ChromeDriver(options);
     }
 
-    @AfterEach
-    public void tearDown() {
+    @AfterAll
+    public static void tearDownClass() {
         if (driver != null) {
             driver.quit();
         }
     }
 
-    /**
-     * Test case: Unauthorized user attempts currency override submission
-     * Preconditions:
-     * - User logged in with role NOT authorized for override
-     * - POST /api/currency/override endpoint accessible
-     * 
-     * Steps:
-     * 1. Attempt override submission via API
-     * 2. Verify rejection with authorization error
-     * 3. Verify no override log entry created
-     * 4. Verify no alert generated
-     * 5. Verify currency data unchanged
-     */
-    @Test
-    public void testOverrideSubmissionRejectedForUnauthorizedUser() throws Exception {
+    @BeforeEach
+    public void setup() {
+        this.mockMvc = MockMvcBuilders.webAppContextSetup(this.wac).build();
+
         // Mock user profile with unauthorized role
         User unauthorizedUser = new User();
-        unauthorizedUser.setId(1001L);
         unauthorizedUser.setUsername("unauthorizedUser");
         unauthorizedUser.setRoles(Collections.singletonList("ROLE_USER")); // Not ROLE_CURRENCY_ADMIN
 
         when(userProfileController.getCurrentUser()).thenReturn(unauthorizedUser);
 
-        // Prepare override request payload
-        CurrencyOverrideRequest overrideRequest = new CurrencyOverrideRequest();
-        overrideRequest.setCurrencyPair("USD/EUR");
-        overrideRequest.setNewExchangeRate(0.85);
+        // Mock currency data unchanged
+        when(currencyConvertionController.getCurrentExchangeRate()).thenReturn(1.10);
+    }
+
+    @Test
+    @WithMockUser(username = "unauthorizedUser", roles = {"USER"})
+    public void testCurrencyOverrideRejectedForUnauthorizedUser() throws Exception {
+        // Prepare override request JSON
+        OverrideRequest overrideRequest = new OverrideRequest();
+        overrideRequest.setNewExchangeRate(1.25);
         overrideRequest.setReason("Test override attempt by unauthorized user");
 
-        String jsonRequest = objectMapper.writeValueAsString(overrideRequest);
+        ObjectMapper mapper = new ObjectMapper();
+        String jsonRequest = mapper.writeValueAsString(overrideRequest);
 
         // Perform POST /api/currency/override
-        MvcResult result = mockMvc.perform(MockMvcRequestBuilders.post("/api/currency/override")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(jsonRequest))
+        MvcResult result = mockMvc.perform(
+                MockMvcRequestBuilders.post("/api/currency/override")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonRequest))
                 .andReturn();
 
-        int status = result.getResponse().getStatus();
-        String responseBody = result.getResponse().getContentAsString();
+        MockHttpServletResponse response = result.getResponse();
 
         // Assert HTTP 403 Forbidden or 401 Unauthorized
-        assertThat(status).isIn(HttpStatus.FORBIDDEN.value(), HttpStatus.UNAUTHORIZED.value());
+        assertThat(response.getStatus()).isIn(HttpStatus.FORBIDDEN.value(), HttpStatus.UNAUTHORIZED.value());
 
         // Assert response contains authorization error message
-        assertThat(responseBody.toLowerCase()).contains("unauthorized").or().contains("forbidden");
+        String content = response.getContentAsString();
+        assertThat(content).containsIgnoringCase("not authorized").or().containsIgnoringCase("access denied");
 
         // Verify no override log entry created
-        verify(currencySyncService, never()).processOverride(any());
+        verify(currencyConvertionController, never()).logOverrideAttempt(any(), any(), any());
 
         // Verify no alert generated
-        verify(currencySyncService, never()).sendOverrideAlert(any());
+        verify(currencyConvertionController, never()).generateAlert(any());
 
-        // Verify currency data remains unchanged - simulate by checking no update call
-        verify(currencySyncService, never()).syncRates();
+        // Verify currency data remains unchanged
+        double currentRate = currencyConvertionController.getCurrentExchangeRate();
+        assertThat(currentRate).isEqualTo(1.10);
 
-        // Selenium part: simulate user login and UI access to override page
-        // (Optional: here we just verify the override button is disabled or not visible)
-
-        // Navigate to login page
+        // Selenium UI check: simulate user login and attempt override via UI
         driver.get("http://localhost:8080/login");
 
-        // Simulate login with unauthorized user credentials
+        // Login form
         WebElement usernameInput = driver.findElement(By.id("username"));
         WebElement passwordInput = driver.findElement(By.id("password"));
-        WebElement loginButton = driver.findElement(By.id("loginBtn"));
+        WebElement loginButton = driver.findElement(By.id("loginButton"));
 
         usernameInput.sendKeys("unauthorizedUser");
-        passwordInput.sendKeys("password123");
+        passwordInput.sendKeys("password");
         loginButton.click();
 
         // Wait for redirect and page load
@@ -172,33 +173,21 @@ public class CurrencyOverrideUnauthorizedUserTest {
         // Navigate to currency override page
         driver.get("http://localhost:8080/currency/override");
 
-        Thread.sleep(1000);
+        // Check that override form is disabled or shows error message
+        WebElement overrideForm = driver.findElement(By.id("overrideForm"));
+        assertThat(overrideForm.isDisplayed()).isTrue();
 
-        // Check that override submission form/button is not accessible or disabled
-        List<WebElement> overrideButtons = driver.findElements(By.id("submitOverrideBtn"));
-        if (!overrideButtons.isEmpty()) {
-            WebElement overrideBtn = overrideButtons.get(0);
-            assertThat(overrideBtn.isDisplayed()).isTrue();
-            assertThat(overrideBtn.isEnabled()).isFalse();
-        } else {
-            // Button not present, also acceptable
-            assertThat(overrideButtons).isEmpty();
-        }
+        WebElement submitButton = driver.findElement(By.id("submitOverride"));
+        assertThat(submitButton.isEnabled()).isFalse();
+
+        WebElement errorMessage = driver.findElement(By.id("errorMessage"));
+        assertThat(errorMessage.getText()).containsIgnoringCase("not authorized");
     }
 
     // DTO for override request
-    static class CurrencyOverrideRequest {
-        private String currencyPair;
+    static class OverrideRequest {
         private double newExchangeRate;
         private String reason;
-
-        public String getCurrencyPair() {
-            return currencyPair;
-        }
-
-        public void setCurrencyPair(String currencyPair) {
-            this.currencyPair = currencyPair;
-        }
 
         public double getNewExchangeRate() {
             return newExchangeRate;

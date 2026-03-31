@@ -17,11 +17,13 @@ public interface CurrencyRateRepository extends JpaRepository<CurrencyRate, Long
     // STORY: FPMAPP-8912 - Find currency rate by currency code and exact timestamp
     Optional<CurrencyRate> findByCurrencyCodeAndRateTimestamp(String currencyCode, LocalDateTime rateTimestamp);
 
-    // STORY: FPMAPP-8912 - Find all currency rates for a currency code between two timestamps (historical data)
-    List<CurrencyRate> findByCurrencyCodeAndRateTimestampBetweenOrderByRateTimestampAsc(String currencyCode, LocalDateTime start, LocalDateTime end);
+    // STORY: FPMAPP-8912 - Find all historical rates for a currency between dates
+    @Query("SELECT c FROM CurrencyRate c WHERE c.currencyCode = :currencyCode AND c.rateTimestamp BETWEEN :start AND :end ORDER BY c.rateTimestamp ASC")
+    List<CurrencyRate> findHistoricalRatesBetween(@Param("currencyCode") String currencyCode,
+                                                  @Param("start") LocalDateTime start,
+                                                  @Param("end") LocalDateTime end);
 
-    // STORY: FPMAPP-8912 - Find all overridden rates for alerting or audit
-    List<CurrencyRate> findByAdminOverrideFlagTrueOrderByRateTimestampDesc();
+    // STORY: FPMAPP-8912 - Find all current (non-historical) rates
+    List<CurrencyRate> findByIsHistoricalFalse();
 
-    // TODO: Add custom queries if needed for performance or complex filtering
 }

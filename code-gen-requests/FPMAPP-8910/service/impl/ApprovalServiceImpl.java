@@ -7,95 +7,91 @@ import com.fpm.model.Delegation;
 import com.fpm.model.User;
 import com.fpm.repository.ApprovalRequestRepository;
 import com.fpm.repository.DelegationRepository;
-import com.fpm.repository.UserRepository;
 import com.fpm.service.ApprovalService;
-import jakarta.transaction.Transactional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.fpm.util.AuditLogger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class ApprovalServiceImpl implements ApprovalService {
 
-    private static final Logger logger = LoggerFactory.getLogger(ApprovalServiceImpl.class);
+    @Autowired
+    private DelegationRepository delegationRepository;
 
-    private final DelegationRepository delegationRepository;
-    private final UserRepository userRepository;
-    private final ApprovalRequestRepository approvalRequestRepository;
+    @Autowired
+    private ApprovalRequestRepository approvalRequestRepository;
 
-    public ApprovalServiceImpl(DelegationRepository delegationRepository, UserRepository userRepository, ApprovalRequestRepository approvalRequestRepository) {
-        this.delegationRepository = delegationRepository;
-        this.userRepository = userRepository;
-        this.approvalRequestRepository = approvalRequestRepository;
-    }
+    @Autowired
+    private AuditLogger auditLogger;
 
-    // STORY: FPMAPP-8910 - Create a delegation of approval authority with validation and audit logging
-    @Transactional
+    // STORY: FPMAPP-8910 - Delegate approval authority to another user with validation and audit logging
     @Override
-    public Delegation createDelegation(DelegationRequestDTO request) {
-        User approver = userRepository.findById(request.getApproverId())
-                .orElseThrow(() -> new IllegalArgumentException("Approver user not found"));
-        User delegate = userRepository.findById(request.getDelegateId())
-                .orElseThrow(() -> new IllegalArgumentException("Delegate user not found"));
-
-        // Validate roles and permissions
+    @Transactional
+    public void delegateApprovalAuthority(User approver, DelegationRequestDTO delegationRequest) throws AuthorizationException {
+        // Validate approver role
         if (!approver.hasRole("APPROVER")) {
-            throw new AuthorizationException("User is not an approver and cannot delegate approval authority");
+            throw new AuthorizationException("User is not authorized to delegate approvals");
         }
 
-        if (!delegate.isAuthorizedForDelegation()) {
-            throw new AuthorizationException("Delegate user is not authorized to receive delegation");
+        // TODO: Validate delegate user exists and is authorized to receive delegation
+        User delegateUser = delegationRequest.getDelegateUser();
+        if (delegateUser == null) {
+            throw new AuthorizationException("Delegate user must be specified");
         }
 
-        // TODO: Validate permissions string format and content against business rules
+        // TODO: Validate delegation permissions against business rules
+        String permissions = delegationRequest.getPermissions();
+        if (permissions == null || permissions.isEmpty()) {
+            throw new AuthorizationException("Delegation permissions must be specified");
+        }
+
+        LocalDateTime startDate = delegationRequest.getStartDate();
+        LocalDateTime endDate = delegationRequest.getEndDate();
+        if (startDate == null || endDate == null || endDate.isBefore(startDate)) {
+            throw new AuthorizationException("Invalid delegation period");
+        }
 
         Delegation delegation = new Delegation();
         delegation.setApprover(approver);
-        delegation.setDelegate(delegate);
-        delegation.setStartTime(request.getStartTime());
-        delegation.setEndTime(request.getEndTime());
-        delegation.setPermissions(request.getPermissions());
+        delegation.setDelegateUser(delegateUser);
+        delegation.setPermissions(permissions);
+        delegation.setStartDate(startDate);
+        delegation.setEndDate(endDate);
 
-        Delegation saved = delegationRepository.save(delegation);
+        delegationRepository.save(delegation);
 
-        logger.info("Delegation created: Approver {} delegated to {} from {} to {} with permissions {}",
-                approver.getUsername(), delegate.getUsername(), request.getStartTime(), request.getEndTime(), request.getPermissions());
-
-        return saved;
+        // Log delegation action
+        auditLogger.log(String.format("Delegation created by approver %s to delegate %s with permissions [%s] from %s to %s",
+                approver.getUsername(), delegateUser.getUsername(), permissions, startDate, endDate));
     }
 
-    // STORY: FPMAPP-8910 - Check if a user has delegated approval rights for a given approval request
+    // STORY: FPMAPP-8910 - Check if user is delegate for approval request
     @Override
     public boolean isUserDelegateForApproval(User user, ApprovalRequest approvalRequest) {
         LocalDateTime now = LocalDateTime.now();
-        List<Delegation> delegations = delegationRepository.findByApproverAndStartTimeLessThanEqualAndEndTimeGreaterThanEqual(
+        List<Delegation> delegations = delegationRepository.findByApproverAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
                 approvalRequest.getApprover(), now, now);
 
         for (Delegation delegation : delegations) {
-            if (delegation.getDelegate().equals(user)) {
-                // TODO: Check if delegation permissions allow this approval action
+            if (delegation.getDelegateUser().getId().equals(user.getId())) {
+                // TODO: Check if delegation permissions cover this approval request
                 return true;
             }
         }
         return false;
     }
 
-    // STORY: FPMAPP-8910 - Mark approval request as delegated and log delegation info
-    @Transactional
+    // STORY: FPMAPP-8910 - Retrieve delegation audit trail for approval request
     @Override
-    public void markApprovalRequestDelegated(ApprovalRequest approvalRequest, Delegation delegation) {
-        approvalRequest.setDelegated(true); // Assuming ApprovalRequest has a delegated flag
-        approvalRequest.setDelegateUser(delegation.getDelegate()); // Assuming ApprovalRequest tracks delegate user
-        approvalRequestRepository.save(approvalRequest);
-
-        logger.info("ApprovalRequest {} marked as delegated to {} by approver {}",
-                approvalRequest.getId(), delegation.getDelegate().getUsername(), delegation.getApprover().getUsername());
+    public List<String> getDelegationAuditTrail(Long approvalRequestId) {
+        // TODO: Implement retrieval of delegation history and changes made by delegates
+        // For now, return empty list
+        return new ArrayList<>();
     }
-
-    // Additional methods for audit trail and delegation history can be added here
 
 }

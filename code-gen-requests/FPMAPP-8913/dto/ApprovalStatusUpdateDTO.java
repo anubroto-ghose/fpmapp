@@ -4,34 +4,14 @@ import java.time.Instant;
 
 public class ApprovalStatusUpdateDTO {
 
-    private String userId;
     private String approvalRequestId;
-    private String status; // e.g., PENDING, APPROVED, REJECTED
+    private String status;
+    private String updatedBy;
+    private Instant updatedAt;
     private String role;
     private boolean delegated;
-    private Instant timestamp;
 
     // STORY: FPMAPP-8913 - DTO for sending real-time approval status updates
-
-    public ApprovalStatusUpdateDTO() {
-    }
-
-    public ApprovalStatusUpdateDTO(String userId, String approvalRequestId, String status, String role, boolean delegated, Instant timestamp) {
-        this.userId = userId;
-        this.approvalRequestId = approvalRequestId;
-        this.status = status;
-        this.role = role;
-        this.delegated = delegated;
-        this.timestamp = timestamp;
-    }
-
-    public String getUserId() {
-        return userId;
-    }
-
-    public void setUserId(String userId) {
-        this.userId = userId;
-    }
 
     public String getApprovalRequestId() {
         return approvalRequestId;
@@ -49,6 +29,22 @@ public class ApprovalStatusUpdateDTO {
         this.status = status;
     }
 
+    public String getUpdatedBy() {
+        return updatedBy;
+    }
+
+    public void setUpdatedBy(String updatedBy) {
+        this.updatedBy = updatedBy;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
     public String getRole() {
         return role;
     }
@@ -64,13 +60,4 @@ public class ApprovalStatusUpdateDTO {
     public void setDelegated(boolean delegated) {
         this.delegated = delegated;
     }
-
-    public Instant getTimestamp() {
-        return timestamp;
-    }
-
-    public void setTimestamp(Instant timestamp) {
-        this.timestamp = timestamp;
-    }
-
 }

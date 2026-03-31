@@ -17,7 +17,7 @@ public class AuditLog {
     @Column(name = "user_id", nullable = false)
     private String userId;
 
-    @Column(name = "action_type", nullable = false, length = 50)
+    @Column(name = "action_type", nullable = false)
     private String actionType; // e.g. APPROVAL, REJECTION, DELEGATION, OVERRIDE
 
     @Column(name = "comments", length = 1000)
@@ -26,10 +26,10 @@ public class AuditLog {
     @Column(name = "action_timestamp", nullable = false)
     private LocalDateTime actionTimestamp;
 
-    @Column(name = "encrypted", nullable = false)
-    private boolean encrypted = false; // TODO: Implement encryption logic if needed
+    @Column(name = "immutable", nullable = false)
+    private boolean immutable = true; // STORY: FPMAPP-8911 - Ensure immutability flag
 
-    // STORY: FPMAPP-8911 - AuditLog entity to store immutable audit trail entries
+    // TODO: Implement encryption for sensitive fields if required
 
     public AuditLog() {
     }
@@ -40,7 +40,7 @@ public class AuditLog {
         this.actionType = actionType;
         this.comments = comments;
         this.actionTimestamp = actionTimestamp;
-        this.encrypted = false; // TODO: Encrypt comments if required
+        this.immutable = true; // STORY: FPMAPP-8911 - Mark log as immutable on creation
     }
 
     public Long getId() {
@@ -51,52 +51,47 @@ public class AuditLog {
         return approvalRequestId;
     }
 
+    public void setApprovalRequestId(Long approvalRequestId) {
+        this.approvalRequestId = approvalRequestId;
+    }
+
     public String getUserId() {
         return userId;
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
     }
 
     public String getActionType() {
         return actionType;
     }
 
+    public void setActionType(String actionType) {
+        this.actionType = actionType;
+    }
+
     public String getComments() {
         return comments;
+    }
+
+    public void setComments(String comments) {
+        this.comments = comments;
     }
 
     public LocalDateTime getActionTimestamp() {
         return actionTimestamp;
     }
 
-    public boolean isEncrypted() {
-        return encrypted;
-    }
-
-    // No setters for immutability except for JPA
-    protected void setId(Long id) {
-        this.id = id;
-    }
-
-    protected void setApprovalRequestId(Long approvalRequestId) {
-        this.approvalRequestId = approvalRequestId;
-    }
-
-    protected void setUserId(String userId) {
-        this.userId = userId;
-    }
-
-    protected void setActionType(String actionType) {
-        this.actionType = actionType;
-    }
-
-    protected void setComments(String comments) {
-        this.comments = comments;
-    }
-
-    protected void setActionTimestamp(LocalDateTime actionTimestamp) {
+    public void setActionTimestamp(LocalDateTime actionTimestamp) {
         this.actionTimestamp = actionTimestamp;
     }
 
-    protected void setEncrypted(boolean encrypted) {
-        this.encrypted = encrypted;
+    public boolean isImmutable() {
+        return immutable;
+    }
+
+    public void setImmutable(boolean immutable) {
+        this.immutable = immutable;
     }
 }

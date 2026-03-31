@@ -10,52 +10,52 @@ Merge files into your codebase according to the **Action** column below.
 
 | Story | File | Action / Description |
 |-------|------|----------------------|
-| FPMAPP-8918 | `model/AuditLog.java` | CREATE: Entity representing immutable audit log entries for approval, delegation, and request changes |
-| FPMAPP-8918 | `model/RequestVersion.java` | CREATE: Entity for versioning and tracking changes to requests after submission |
-| FPMAPP-8918 | `repository/AuditLogRepository.java` | CREATE: Repository interface for querying immutable audit logs with filtering capabilities |
-| FPMAPP-8918 | `service/AuditLogService.java` | CREATE: Service interface defining audit log operations and queries |
-| FPMAPP-8918 | `service/impl/AuditLogServiceImpl.java` | CREATE: Implementation of AuditLogService with transactional immutable audit log saving and querying |
-| FPMAPP-8917 | `controller/ApprovalNotificationWebSocketController.java` | Creates WebSocket controller to send real-time approval status updates to users (CREATE) |
-| FPMAPP-8917 | `dto/ApprovalStatusUpdateDTO.java` | DTO for approval status update messages sent via WebSocket and email (CREATE) |
-| FPMAPP-8917 | `service/NotificationService.java` | Notification service interface to send approval status update notifications (CREATE) |
-| FPMAPP-8917 | `service/impl/NotificationServiceImpl.java` | Implementation of NotificationService sending email and in-app WebSocket notifications (CREATE) |
-| FPMAPP-8916 | `model/CurrencyRate.java` | CREATE: Entity representing currency exchange rates with historical data and override audit fields |
-| FPMAPP-8916 | `repository/CurrencyRateRepository.java` | CREATE: Repository interface for CurrencyRate entity with methods for latest and historical queries |
+| FPMAPP-8918 | `model/AuditLog.java` | One-line summary: AuditLog entity to store immutable audit trail records - CREATE new file |
+| FPMAPP-8918 | `repository/AuditLogRepository.java` | One-line summary: Repository interface for AuditLog entity with query methods - CREATE new file |
+| FPMAPP-8918 | `service/AuditLogService.java` | One-line summary: Service interface for audit log operations - CREATE new file |
+| FPMAPP-8918 | `service/impl/AuditLogServiceImpl.java` | One-line summary: Implementation of AuditLogService with immutable save and query methods - CREATE new file |
+| FPMAPP-8917 | `controller/ApprovalNotificationWebSocketController.java` | controller/ApprovalNotificationWebSocketController.java - CREATE new WebSocket controller for real-time approval status updates |
+| FPMAPP-8917 | `dto/ApprovalRequestStatusUpdateDTO.java` | dto/ApprovalRequestStatusUpdateDTO.java - CREATE DTO for approval request status updates with history |
+| FPMAPP-8917 | `service/ApprovalNotificationService.java` | service/ApprovalNotificationService.java - CREATE service interface for approval notifications |
+| FPMAPP-8917 | `service/impl/ApprovalNotificationServiceImpl.java` | service/impl/ApprovalNotificationServiceImpl.java - CREATE implementation for approval notification service with WebSocket and email |
+| FPMAPP-8916 | `model/CurrencyRate.java` | CREATE: Entity model for currency exchange rates with historical data and override audit fields |
+| FPMAPP-8916 | `repository/CurrencyRateRepository.java` | CREATE: Repository interface for CurrencyRate entity with queries for latest, historical, and date range retrieval |
 | FPMAPP-8916 | `service/CurrencyRateService.java` | CREATE: Service interface defining currency rate operations including retrieval, override, and sync |
-| FPMAPP-8916 | `service/impl/CurrencyRateServiceImpl.java` | MERGE: Implementation of CurrencyRateService with scheduled sync, retrieval, and admin override logic |
-| FPMAPP-8916 | `controller/CurrencyRateController.java` | CREATE: REST controller exposing APIs for latest, historical currency rates and admin override with security |
+| FPMAPP-8916 | `service/impl/CurrencyRateServiceImpl.java` | CREATE: Service implementation for currency rate operations including scheduled sync, retrieval, and admin override with logging and alerting |
+| FPMAPP-8916 | `controller/CurrencyRateController.java` | CREATE: REST controller exposing APIs for current and historical currency rates and admin override with security |
 | FPMAPP-8915 | `model/ApprovalDelegation.java` | One-line summary: Entity class for approval delegation metadata - CREATE |
-| FPMAPP-8915 | `model/AuditLog.java` | One-line summary: Entity class for immutable audit logs - CREATE |
+| FPMAPP-8915 | `model/ApprovalAuditLog.java` | One-line summary: Entity class for immutable audit logs of approval and delegation events - CREATE |
 | FPMAPP-8915 | `repository/ApprovalDelegationRepository.java` | One-line summary: Repository interface for ApprovalDelegation entity - CREATE |
-| FPMAPP-8915 | `service/ApprovalDelegationService.java` | One-line summary: Service interface for approval delegation operations - CREATE |
-| FPMAPP-8915 | `service/impl/ApprovalDelegationServiceImpl.java` | One-line summary: Implementation of approval delegation service with create, update, revoke, and permission check - CREATE |
-| FPMAPP-8915 | `repository/AuditLogRepository.java` | One-line summary: Repository interface for AuditLog entity - CREATE |
-| FPMAPP-8914 | `model/ApprovalRole.java` | One-line summary: Entity representing approval roles and their value thresholds - CREATE |
-| FPMAPP-8914 | `model/ApprovalRequest.java` | One-line summary: Entity representing approval requests with status and role tracking - CREATE |
-| FPMAPP-8914 | `repository/ApprovalRoleRepository.java` | One-line summary: Repository interface for ApprovalRole entity - CREATE |
-| FPMAPP-8914 | `repository/ApprovalRequestRepository.java` | One-line summary: Repository interface for ApprovalRequest entity - CREATE |
-| FPMAPP-8914 | `service/ApprovalWorkflowService.java` | One-line summary: Service interface defining approval workflow operations - CREATE |
-| FPMAPP-8914 | `service/impl/ApprovalWorkflowServiceImpl.java` | One-line summary: Implementation of hierarchical role-based approval workflow service - CREATE |
-| FPMAPP-8914 | `controller/ApprovalWorkflowController.java` | One-line summary: REST controller exposing endpoints for hierarchical role-based approval workflow - CREATE |
-| FPMAPP-8913 | `controller/RealTimeStatusController.java` | RealTimeStatusController provides methods to push approval status and upload progress updates via WebSocket topics; MERGE (new class) |
-| FPMAPP-8913 | `dto/ApprovalStatusUpdateDTO.java` | ApprovalStatusUpdateDTO represents real-time approval status update data; CREATE new DTO |
-| FPMAPP-8913 | `dto/UploadProgressUpdateDTO.java` | UploadProgressUpdateDTO represents real-time upload progress update data; CREATE new DTO |
-| FPMAPP-8913 | `config/WebSocketConfig.java` | WebSocketConfig sets up STOMP WebSocket endpoints and message broker; CREATE new config class |
-| FPMAPP-8912 | `model/CurrencyRate.java` | CREATE model/CurrencyRate.java - Entity representing currency exchange rates with timestamp, historical flag, and admin override fields |
-| FPMAPP-8912 | `repository/CurrencyRateRepository.java` | CREATE repository/CurrencyRateRepository.java - JPA repository for CurrencyRate entity with queries for latest, historical, and overridden rates |
-| FPMAPP-8912 | `service/CurrencyService.java` | CREATE service/CurrencyService.java - Service interface defining currency rate operations including fetch, query, and admin override |
-| FPMAPP-8912 | `service/impl/CurrencyServiceImpl.java` | MERGE service/impl/CurrencyServiceImpl.java - Implementation of CurrencyService with scheduled fetch, historical queries, and admin override logic |
-| FPMAPP-8911 | `model/AuditLog.java` | CREATE AuditLog entity to store immutable audit trail entries for approval, rejection, delegation, and override actions |
-| FPMAPP-8911 | `repository/AuditLogRepository.java` | CREATE AuditLogRepository interface for querying audit logs by approval request ID |
-| FPMAPP-8911 | `service/ApprovalAuditService.java` | CREATE ApprovalAuditService interface to define audit log operations |
-| FPMAPP-8911 | `service/impl/ApprovalAuditServiceImpl.java` | CREATE ApprovalAuditServiceImpl to implement audit log creation and retrieval logic |
-| FPMAPP-8910 | `model/Delegation.java` | Create Delegation entity to represent approval delegation with permissions and timestamps |
-| FPMAPP-8910 | `dto/DelegationRequestDTO.java` | Create DelegationRequestDTO for API input to delegate approval authority |
+| FPMAPP-8915 | `service/ApprovalDelegationService.java` | One-line summary: Service interface for approval delegation management - CREATE |
+| FPMAPP-8914 | `model/ApprovalRole.java` | CREATE entity to represent approval roles and their value thresholds |
+| FPMAPP-8914 | `model/ApprovalRequest.java` | CREATE entity to represent approval requests with role and status metadata |
+| FPMAPP-8914 | `repository/ApprovalRoleRepository.java` | CREATE repository interface for ApprovalRole entity |
+| FPMAPP-8914 | `repository/ApprovalRequestRepository.java` | CREATE repository interface for ApprovalRequest entity |
+| FPMAPP-8914 | `service/ApprovalService.java` | CREATE service interface for approval workflow |
+| FPMAPP-8914 | `service/impl/ApprovalServiceImpl.java` | MERGE service implementation with hierarchical role-based approval logic |
+| FPMAPP-8914 | `controller/ApprovalController.java` | CREATE REST controller exposing endpoints for hierarchical role-based approval workflow |
+| FPMAPP-8913 | `controller/RealTimeStatusController.java` | RealTimeStatusController with WebSocket endpoints and push methods - CREATE |
+| FPMAPP-8913 | `dto/ApprovalStatusUpdateDTO.java` | DTO for approval status updates - CREATE |
+| FPMAPP-8913 | `dto/UploadProgressUpdateDTO.java` | DTO for upload progress updates - CREATE |
+| FPMAPP-8913 | `service/impl/RealTimeStatusServiceImpl.java` | Service implementation for pushing real-time status updates - CREATE |
+| FPMAPP-8913 | `service/RealTimeStatusService.java` | Service interface for real-time status updates - CREATE |
+| FPMAPP-8912 | `model/CurrencyRate.java` | model/CurrencyRate.java - CREATE new entity with additional fields for real-time and historical currency rates, admin override flags and reasons |
+| FPMAPP-8912 | `repository/CurrencyRateRepository.java` | repository/CurrencyRateRepository.java - CREATE new repository interface for CurrencyRate entity with methods for latest, historical and date range queries |
+| FPMAPP-8912 | `service/CurrencyService.java` | service/CurrencyService.java - CREATE new service interface defining methods for real-time fetch, historical queries and admin overrides |
+| FPMAPP-8912 | `service/impl/CurrencyServiceImpl.java` | service/impl/CurrencyServiceImpl.java - CREATE implementation of CurrencyService with scheduled real-time fetch, historical queries, and admin override logic |
+| FPMAPP-8911 | `model/AuditLog.java` | CREATE model/AuditLog.java - Entity representing audit log entries for approval actions |
+| FPMAPP-8911 | `repository/AuditLogRepository.java` | CREATE repository/AuditLogRepository.java - JPA repository for AuditLog entity |
+| FPMAPP-8911 | `service/ApprovalAuditService.java` | CREATE service/ApprovalAuditService.java - Service interface for audit logging and retrieval |
+| FPMAPP-8911 | `service/impl/ApprovalAuditServiceImpl.java` | CREATE service/impl/ApprovalAuditServiceImpl.java - Implementation of audit logging service |
+| FPMAPP-8910 | `model/Delegation.java` | Create Delegation entity to represent approval delegation with permissions and validity period |
 | FPMAPP-8910 | `repository/DelegationRepository.java` | Create DelegationRepository for CRUD and query operations on Delegation entity |
-| FPMAPP-8910 | `service/impl/ApprovalServiceImpl.java` | Merge new methods into ApprovalServiceImpl to handle delegation creation, validation, and approval request delegation marking |
-| FPMAPP-8910 | `controller/ApprovalController.java` | Merge new API endpoint into ApprovalController to accept delegation requests and create delegations |
-| FPMAPP-8909 | `model/ApprovalRequest.java` | MERGE: Add approvalStatus and currentApproverRole fields to ApprovalRequest entity for role-based approval workflow |
-| FPMAPP-8909 | `dto/ApprovalActionRequest.java` | CREATE: DTO for approval action requests including approver role and action |
-| FPMAPP-8909 | `service/ApprovalService.java` | MERGE: Add methods to ApprovalService interface for role-based approval processing and retrieval |
-| FPMAPP-8909 | `service/impl/ApprovalServiceImpl.java` | MERGE: Implement role-based approval logic in ApprovalServiceImpl with validation and status updates |
-| FPMAPP-8909 | `controller/ApprovalController.java` | MERGE: Add REST endpoints in ApprovalController for processing approval actions and retrieving approval request details |
+| FPMAPP-8910 | `service/ApprovalService.java` | Extend ApprovalService interface with delegation related methods |
+| FPMAPP-8910 | `service/impl/ApprovalServiceImpl.java` | Implement delegation logic, validation, and audit logging in ApprovalServiceImpl |
+| FPMAPP-8910 | `controller/ApprovalController.java` | Add ApprovalController endpoint to handle delegation requests |
+| FPMAPP-8910 | `dto/DelegationRequestDTO.java` | Create DelegationRequestDTO to accept delegation parameters from API |
+| FPMAPP-8909 | `model/ApprovalRequest.java` | MERGE - Add approvalStatus and currentApproverRole fields to ApprovalRequest entity for role-based approval workflow |
+| FPMAPP-8909 | `dto/ApprovalActionRequest.java` | CREATE - DTO for approval action requests including user role for validation |
+| FPMAPP-8909 | `service/ApprovalService.java` | MERGE - Add methods for processing approval actions and determining approver role based on request value |
+| FPMAPP-8909 | `service/impl/ApprovalServiceImpl.java` | MERGE - Implement role-based approval logic and validation in ApprovalServiceImpl |
+| FPMAPP-8909 | `controller/ApprovalController.java` | MERGE - Add REST endpoints for approval actions and fetching approval request details with role-based enforcement |
+| FPMAPP-8909 | `service/impl/ApprovalServiceImpl.java` | MERGE - Add method to fetch approval request by id for controller GET endpoint |

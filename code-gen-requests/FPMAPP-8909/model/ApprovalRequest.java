@@ -15,14 +15,14 @@ public class ApprovalRequest {
     private BigDecimal requestValue;
 
     @Column(nullable = false)
-    private String currentApproverRole;
+    private String approvalStatus; // e.g., PENDING, APPROVED, REJECTED
 
     @Column(nullable = false)
-    private String approvalStatus;
+    private String currentApproverRole; // e.g., MANAGER, DIRECTOR
 
-    // other fields like requesterId, requestDetails etc.
+    // other fields like requesterId, requestDate, etc.
 
-    // STORY: FPMAPP-8909 - Added fields for hierarchical role-based approval workflow
+    // STORY: FPMAPP-8909 - Added approvalStatus and currentApproverRole fields to track approval workflow
 
     public Long getId() {
         return id;
@@ -40,14 +40,6 @@ public class ApprovalRequest {
         this.requestValue = requestValue;
     }
 
-    public String getCurrentApproverRole() {
-        return currentApproverRole;
-    }
-
-    public void setCurrentApproverRole(String currentApproverRole) {
-        this.currentApproverRole = currentApproverRole;
-    }
-
     public String getApprovalStatus() {
         return approvalStatus;
     }
@@ -56,5 +48,13 @@ public class ApprovalRequest {
         this.approvalStatus = approvalStatus;
     }
 
-    // TODO: Add equals, hashCode, toString if needed
+    public String getCurrentApproverRole() {
+        return currentApproverRole;
+    }
+
+    public void setCurrentApproverRole(String currentApproverRole) {
+        this.currentApproverRole = currentApproverRole;
+    }
+
+    // TODO: Add other necessary fields and methods
 }

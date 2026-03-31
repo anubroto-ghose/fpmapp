@@ -1,15 +1,19 @@
 package com.fpm.dto;
 
-import java.math.BigDecimal;
+import jakarta.validation.constraints.NotNull;
 
 public class ApprovalActionRequest {
 
+    @NotNull
     private Long approvalRequestId;
-    private String approverUsername;
-    private String approverRole;
-    private String action; // e.g. APPROVE or REJECT
 
-    // STORY: FPMAPP-8909 - DTO for approval action request with role validation
+    @NotNull
+    private String action; // APPROVE or REJECT
+
+    @NotNull
+    private String userRole; // Role of the user performing the action
+
+    // STORY: FPMAPP-8909 - DTO to capture approval action request with user role validation
 
     public Long getApprovalRequestId() {
         return approvalRequestId;
@@ -19,27 +23,19 @@ public class ApprovalActionRequest {
         this.approvalRequestId = approvalRequestId;
     }
 
-    public String getApproverUsername() {
-        return approverUsername;
-    }
-
-    public void setApproverUsername(String approverUsername) {
-        this.approverUsername = approverUsername;
-    }
-
-    public String getApproverRole() {
-        return approverRole;
-    }
-
-    public void setApproverRole(String approverRole) {
-        this.approverRole = approverRole;
-    }
-
     public String getAction() {
         return action;
     }
 
     public void setAction(String action) {
         this.action = action;
+    }
+
+    public String getUserRole() {
+        return userRole;
+    }
+
+    public void setUserRole(String userRole) {
+        this.userRole = userRole;
     }
 }

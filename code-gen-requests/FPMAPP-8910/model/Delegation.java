@@ -16,17 +16,17 @@ public class Delegation {
     private User approver;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "delegate_id", nullable = false)
-    private User delegate;
+    @JoinColumn(name = "delegate_user_id", nullable = false)
+    private User delegateUser;
 
-    @Column(name = "start_time", nullable = false)
-    private LocalDateTime startTime;
-
-    @Column(name = "end_time", nullable = false)
-    private LocalDateTime endTime;
-
-    @Column(name = "permissions", length = 500, nullable = false)
+    @Column(name = "permissions", nullable = false)
     private String permissions; // JSON or CSV string representing controlled permissions
+
+    @Column(name = "start_date", nullable = false)
+    private LocalDateTime startDate;
+
+    @Column(name = "end_date", nullable = false)
+    private LocalDateTime endDate;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -64,28 +64,12 @@ public class Delegation {
         this.approver = approver;
     }
 
-    public User getDelegate() {
-        return delegate;
+    public User getDelegateUser() {
+        return delegateUser;
     }
 
-    public void setDelegate(User delegate) {
-        this.delegate = delegate;
-    }
-
-    public LocalDateTime getStartTime() {
-        return startTime;
-    }
-
-    public void setStartTime(LocalDateTime startTime) {
-        this.startTime = startTime;
-    }
-
-    public LocalDateTime getEndTime() {
-        return endTime;
-    }
-
-    public void setEndTime(LocalDateTime endTime) {
-        this.endTime = endTime;
+    public void setDelegateUser(User delegateUser) {
+        this.delegateUser = delegateUser;
     }
 
     public String getPermissions() {
@@ -94,6 +78,22 @@ public class Delegation {
 
     public void setPermissions(String permissions) {
         this.permissions = permissions;
+    }
+
+    public LocalDateTime getStartDate() {
+        return startDate;
+    }
+
+    public void setStartDate(LocalDateTime startDate) {
+        this.startDate = startDate;
+    }
+
+    public LocalDateTime getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(LocalDateTime endDate) {
+        this.endDate = endDate;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -9,6 +9,6 @@ import java.util.List;
 @Repository
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
-    // STORY: FPMAPP-8911 - Repository to query audit logs by approval request
+    // STORY: FPMAPP-8911 - Retrieve audit logs by approval request ID
     List<AuditLog> findByApprovalRequestIdOrderByActionTimestampAsc(Long approvalRequestId);
 }

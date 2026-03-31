@@ -18,7 +18,7 @@ public class ApprovalDelegation {
     private Long delegateeUserId;
 
     @Column(name = "permissions", nullable = false, length = 500)
-    private String permissions; // JSON or CSV string representing permissions
+    private String permissions; // JSON or comma-separated permissions
 
     @Column(name = "start_time", nullable = false)
     private LocalDateTime startTime;

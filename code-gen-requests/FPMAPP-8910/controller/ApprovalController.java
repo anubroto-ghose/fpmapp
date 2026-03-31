@@ -1,10 +1,12 @@
 package com.fpm.controller;
 
 import com.fpm.dto.DelegationRequestDTO;
-import com.fpm.model.Delegation;
+import com.fpm.exception.AuthorizationException;
+import com.fpm.model.User;
 import com.fpm.service.ApprovalService;
+import com.fpm.util.SecurityUtil;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,19 +14,21 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/approvals")
 public class ApprovalController {
 
-    private final ApprovalService approvalService;
+    @Autowired
+    private ApprovalService approvalService;
 
-    public ApprovalController(ApprovalService approvalService) {
-        this.approvalService = approvalService;
-    }
-
-    // STORY: FPMAPP-8910 - API endpoint to create a delegation of approval authority
+    // STORY: FPMAPP-8910 - Endpoint to delegate approval authority
     @PostMapping("/delegate")
-    public ResponseEntity<Delegation> delegateApprovalAuthority(@Valid @RequestBody DelegationRequestDTO delegationRequest) {
-        Delegation delegation = approvalService.createDelegation(delegationRequest);
-        return new ResponseEntity<>(delegation, HttpStatus.CREATED);
+    public ResponseEntity<String> delegateApproval(@Valid @RequestBody DelegationRequestDTO delegationRequest) {
+        User currentUser = SecurityUtil.getCurrentUser();
+        try {
+            approvalService.delegateApprovalAuthority(currentUser, delegationRequest);
+            return ResponseEntity.ok("Delegation created successfully");
+        } catch (AuthorizationException e) {
+            return ResponseEntity.status(403).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Internal server error");
+        }
     }
-
-    // TODO: Add endpoints to retrieve delegation history, revoke delegation, etc. if needed
 
 }

@@ -20,55 +20,37 @@ public class AuditLogServiceImpl implements AuditLogService {
 
     @Override
     @Transactional
-    // STORY: FPMAPP-8918 - log approval or rejection decision
-    public void logApprovalDecision(Long requestId, Long userId, String decisionDetails) {
-        AuditLog log = new AuditLog(requestId, userId, "APPROVAL_DECISION", decisionDetails, LocalDateTime.now());
-        auditLogRepository.save(log);
+    // STORY: FPMAPP-8918 - Save a new immutable audit log entry
+    public AuditLog logAuditEvent(AuditLog auditLog) {
+        // Ensure immutability by not allowing updates after save
+        auditLog.setImmutable(true);
+        if (auditLog.getTimestamp() == null) {
+            auditLog.setTimestamp(LocalDateTime.now());
+        }
+        return auditLogRepository.save(auditLog);
     }
 
     @Override
-    @Transactional
-    // STORY: FPMAPP-8918 - log delegation action or override
-    public void logDelegationAction(Long requestId, Long userId, String delegationDetails) {
-        AuditLog log = new AuditLog(requestId, userId, "DELEGATION_ACTION", delegationDetails, LocalDateTime.now());
-        auditLogRepository.save(log);
+    // STORY: FPMAPP-8918 - Retrieve audit logs by requestId
+    public List<AuditLog> getAuditLogsByRequestId(Long requestId) {
+        return auditLogRepository.findByRequestIdOrderByTimestampDesc(requestId);
     }
 
     @Override
-    @Transactional
-    // STORY: FPMAPP-8918 - log request changes
-    public void logRequestChange(Long requestId, Long userId, String changeDetails) {
-        AuditLog log = new AuditLog(requestId, userId, "REQUEST_CHANGE", changeDetails, LocalDateTime.now());
-        auditLogRepository.save(log);
+    // STORY: FPMAPP-8918 - Retrieve audit logs by userId
+    public List<AuditLog> getAuditLogsByUserId(String userId) {
+        return auditLogRepository.findByUserIdOrderByTimestampDesc(userId);
     }
 
     @Override
-    // STORY: FPMAPP-8918 - get audit logs by request
-    public List<AuditLog> getAuditLogsByRequest(Long requestId) {
-        return auditLogRepository.findByRequestId(requestId);
-    }
-
-    @Override
-    // STORY: FPMAPP-8918 - get audit logs by user
-    public List<AuditLog> getAuditLogsByUser(Long userId) {
-        return auditLogRepository.findByUserId(userId);
-    }
-
-    @Override
-    // STORY: FPMAPP-8918 - get audit logs by date range
+    // STORY: FPMAPP-8918 - Retrieve audit logs by date range
     public List<AuditLog> getAuditLogsByDateRange(LocalDateTime start, LocalDateTime end) {
-        return auditLogRepository.findByTimestampBetween(start, end);
+        return auditLogRepository.findByTimestampBetweenOrderByTimestampDesc(start, end);
     }
 
     @Override
-    // STORY: FPMAPP-8918 - get audit logs by request and user
-    public List<AuditLog> getAuditLogsByRequestAndUser(Long requestId, Long userId) {
-        return auditLogRepository.findByRequestIdAndUserId(requestId, userId);
-    }
-
-    @Override
-    // STORY: FPMAPP-8918 - get audit logs by request and date range
-    public List<AuditLog> getAuditLogsByRequestAndDateRange(Long requestId, LocalDateTime start, LocalDateTime end) {
-        return auditLogRepository.findByRequestIdAndTimestampBetween(requestId, start, end);
+    // STORY: FPMAPP-8918 - Retrieve audit logs by requestId and userId
+    public List<AuditLog> getAuditLogsByRequestIdAndUserId(Long requestId, String userId) {
+        return auditLogRepository.findByRequestIdAndUserIdOrderByTimestampDesc(requestId, userId);
     }
 }

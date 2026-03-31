@@ -2,30 +2,12 @@ package com.fpm.dto;
 
 public class UploadProgressUpdateDTO {
 
-    private String userId;
     private String uploadId;
-    private int progressPercentage; // 0-100
-    private String status; // e.g., IN_PROGRESS, COMPLETED, FAILED
+    private int progressPercentage;
+    private String status; // e.g., "IN_PROGRESS", "COMPLETED", "FAILED"
+    private String message;
 
     // STORY: FPMAPP-8913 - DTO for sending real-time upload progress updates
-
-    public UploadProgressUpdateDTO() {
-    }
-
-    public UploadProgressUpdateDTO(String userId, String uploadId, int progressPercentage, String status) {
-        this.userId = userId;
-        this.uploadId = uploadId;
-        this.progressPercentage = progressPercentage;
-        this.status = status;
-    }
-
-    public String getUserId() {
-        return userId;
-    }
-
-    public void setUserId(String userId) {
-        this.userId = userId;
-    }
 
     public String getUploadId() {
         return uploadId;
@@ -51,4 +33,11 @@ public class UploadProgressUpdateDTO {
         this.status = status;
     }
 
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
 }

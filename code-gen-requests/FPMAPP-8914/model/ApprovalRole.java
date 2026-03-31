@@ -11,7 +11,7 @@ public class ApprovalRole {
     private Long id;
 
     @Column(nullable = false, unique = true)
-    private String roleName; // e.g., MANAGER, DIRECTOR
+    private String roleName; // e.g., DIRECTOR, MANAGER
 
     @Column(nullable = false)
     private Double approvalThreshold; // max amount this role can approve

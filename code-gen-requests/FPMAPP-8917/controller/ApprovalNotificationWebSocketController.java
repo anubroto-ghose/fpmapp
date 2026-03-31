@@ -1,24 +1,33 @@
 package com.fpm.controller;
 
+import com.fpm.dto.ApprovalRequestStatusUpdateDTO;
+import com.fpm.service.ApprovalNotificationService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.messaging.handler.annotation.SendToUser;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
-import com.fpm.dto.ApprovalStatusUpdateDTO;
-
-import lombok.RequiredArgsConstructor;
-
 @Controller
-@RequiredArgsConstructor
 public class ApprovalNotificationWebSocketController {
 
-    private final SimpMessagingTemplate messagingTemplate;
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
 
-    // STORY: FPMAPP-8917 - Send real-time approval status updates to subscribed users
-    public void sendApprovalStatusUpdate(ApprovalStatusUpdateDTO update) {
-        // TODO: Add any filtering or routing logic based on roles/delegation if needed
-        messagingTemplate.convertAndSendToUser(
-            update.getRequesterUsername(), "/queue/approval-status", update);
+    @Autowired
+    private ApprovalNotificationService approvalNotificationService;
+
+    // STORY: FPMAPP-8917 - Endpoint to send real-time approval status updates to requester
+    public void sendApprovalStatusUpdateToUser(Long userId, ApprovalRequestStatusUpdateDTO updateDTO) {
+        // Send message to specific user queue
+        messagingTemplate.convertAndSendToUser(userId.toString(), "/queue/approval-status", updateDTO);
+    }
+
+    // STORY: FPMAPP-8917 - Receive client subscription requests if needed (optional)
+    @MessageMapping("/approval/status/request")
+    @SendToUser("/queue/approval-status")
+    public ApprovalRequestStatusUpdateDTO subscribeApprovalStatus(ApprovalRequestStatusUpdateDTO request) {
+        // TODO: Implement if client sends subscription requests or ping
+        return null;
     }
 }

@@ -20,16 +20,28 @@ public class RealTimeStatusController {
         this.messagingTemplate = messagingTemplate;
     }
 
-    // STORY: FPMAPP-8913 - Endpoint to send approval status updates to subscribed clients
-    public void sendApprovalStatusUpdate(ApprovalStatusUpdateDTO update) {
-        // TODO: Add any filtering or role-based logic if needed before sending
-        messagingTemplate.convertAndSend("/topic/approval-status/" + update.getUserId(), update);
+    // STORY: FPMAPP-8913 - Endpoint to receive approval status updates and broadcast to subscribers
+    @MessageMapping("/approval/status/update")
+    @SendTo("/topic/approval/status")
+    public ApprovalStatusUpdateDTO sendApprovalStatusUpdate(ApprovalStatusUpdateDTO update) {
+        // This method can be used if clients send updates, but typically backend pushes updates
+        return update;
     }
 
-    // STORY: FPMAPP-8913 - Endpoint to send upload progress updates to subscribed clients
-    public void sendUploadProgressUpdate(UploadProgressUpdateDTO update) {
-        // TODO: Add any filtering or role-based logic if needed before sending
-        messagingTemplate.convertAndSend("/topic/upload-progress/" + update.getUserId(), update);
+    // STORY: FPMAPP-8913 - Endpoint to receive upload progress updates and broadcast to subscribers
+    @MessageMapping("/upload/progress/update")
+    @SendTo("/topic/upload/progress")
+    public UploadProgressUpdateDTO sendUploadProgressUpdate(UploadProgressUpdateDTO update) {
+        return update;
     }
 
+    // STORY: FPMAPP-8913 - Method for backend services to push approval status updates to clients
+    public void pushApprovalStatusUpdate(ApprovalStatusUpdateDTO update) {
+        messagingTemplate.convertAndSend("/topic/approval/status", update);
+    }
+
+    // STORY: FPMAPP-8913 - Method for backend services to push upload progress updates to clients
+    public void pushUploadProgressUpdate(UploadProgressUpdateDTO update) {
+        messagingTemplate.convertAndSend("/topic/upload/progress", update);
+    }
 }

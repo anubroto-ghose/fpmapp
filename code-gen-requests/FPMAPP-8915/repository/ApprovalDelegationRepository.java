@@ -16,5 +16,5 @@ public interface ApprovalDelegationRepository extends JpaRepository<ApprovalDele
 
     Optional<ApprovalDelegation> findByIdAndActiveTrue(Long id);
 
-    // STORY: FPMAPP-8915 - Repository for managing approval delegations
+    // STORY: FPMAPP-8915 - Repository for managing approval delegation entities
 }

@@ -1,14 +1,16 @@
 package com.fpm.controller;
 
-import com.fpm.dto.CurrencyRateDto;
+import com.fpm.model.CurrencyRate;
 import com.fpm.service.CurrencyRateService;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -22,98 +24,36 @@ public class CurrencyRateController {
         this.currencyRateService = currencyRateService;
     }
 
+    // STORY: FPMAPP-8916 - API to get latest currency rate for a given currency code
     @GetMapping("/latest/{currencyCode}")
-    public ResponseEntity<CurrencyRateDto> getLatestRate(@PathVariable @NotBlank String currencyCode) {
-        // STORY: FPMAPP-8916 - API to get latest currency rate
-        CurrencyRateDto dto = currencyRateService.getLatestRate(currencyCode.toUpperCase());
-        if (dto == null) {
+    public ResponseEntity<CurrencyRate> getLatestRate(@PathVariable @NotBlank String currencyCode) {
+        CurrencyRate rate = currencyRateService.getLatestRate(currencyCode.toUpperCase());
+        if (rate == null) {
             return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok(dto);
+        return ResponseEntity.ok(rate);
     }
 
+    // STORY: FPMAPP-8916 - API to get historical currency rates between start and end dates
     @GetMapping("/history/{currencyCode}")
-    public ResponseEntity<List<CurrencyRateDto>> getHistoricalRates(
+    public ResponseEntity<List<CurrencyRate>> getHistoricalRates(
             @PathVariable @NotBlank String currencyCode,
-            @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
-            @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
-        // STORY: FPMAPP-8916 - API to get historical currency rates
-        List<CurrencyRateDto> rates = currencyRateService.getHistoricalRates(currencyCode.toUpperCase(), start, end);
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) @NotNull LocalDateTime startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) @NotNull LocalDateTime endDate) {
+        List<CurrencyRate> rates = currencyRateService.getHistoricalRates(currencyCode.toUpperCase(), startDate, endDate);
         return ResponseEntity.ok(rates);
     }
 
+    // STORY: FPMAPP-8916 - Admin API to override currency rate with audit logging and alerting
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/override")
-    public ResponseEntity<CurrencyRateDto> overrideCurrencyRate(@RequestBody OverrideRequest request) {
-        // STORY: FPMAPP-8916 - API for admin override of currency rate
-        CurrencyRateDto overridden = currencyRateService.overrideCurrencyRate(
-                request.getCurrencyCode().toUpperCase(),
-                request.getRateDate(),
-                request.getOverrideBy(),
-                request.getReason(),
-                request.getNewRate());
-        return ResponseEntity.ok(overridden);
+    public ResponseEntity<CurrencyRate> overrideCurrencyRate(
+            @RequestParam @NotBlank String currencyCode,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) @NotNull LocalDateTime rateDate,
+            @RequestParam @NotNull BigDecimal newRate,
+            @RequestParam @NotBlank String overrideBy,
+            @RequestParam String reason) {
+        CurrencyRate overriddenRate = currencyRateService.overrideCurrencyRate(currencyCode.toUpperCase(), rateDate, newRate, overrideBy, reason);
+        return new ResponseEntity<>(overriddenRate, HttpStatus.OK);
     }
-
-    public static class OverrideRequest {
-
-        @NotBlank
-        private String currencyCode;
-
-        @NotNull
-        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-        private LocalDateTime rateDate;
-
-        @NotBlank
-        private String overrideBy;
-
-        @NotBlank
-        private String reason;
-
-        @NotNull
-        private Double newRate;
-
-        // Getters and setters
-
-        public String getCurrencyCode() {
-            return currencyCode;
-        }
-
-        public void setCurrencyCode(String currencyCode) {
-            this.currencyCode = currencyCode;
-        }
-
-        public LocalDateTime getRateDate() {
-            return rateDate;
-        }
-
-        public void setRateDate(LocalDateTime rateDate) {
-            this.rateDate = rateDate;
-        }
-
-        public String getOverrideBy() {
-            return overrideBy;
-        }
-
-        public void setOverrideBy(String overrideBy) {
-            this.overrideBy = overrideBy;
-        }
-
-        public String getReason() {
-            return reason;
-        }
-
-        public void setReason(String reason) {
-            this.reason = reason;
-        }
-
-        public Double getNewRate() {
-            return newRate;
-        }
-
-        public void setNewRate(Double newRate) {
-            this.newRate = newRate;
-        }
-    }
-
 }

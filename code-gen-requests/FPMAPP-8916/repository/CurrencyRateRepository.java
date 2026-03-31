@@ -15,11 +15,13 @@ public interface CurrencyRateRepository extends JpaRepository<CurrencyRate, Long
     @Query("SELECT cr FROM CurrencyRate cr WHERE cr.currencyCode = :currencyCode ORDER BY cr.rateDate DESC")
     List<CurrencyRate> findLatestByCurrencyCode(@Param("currencyCode") String currencyCode);
 
-    // STORY: FPMAPP-8916 - Find currency rates between dates for historical queries
-    List<CurrencyRate> findByCurrencyCodeAndRateDateBetweenOrderByRateDateDesc(String currencyCode, LocalDateTime start, LocalDateTime end);
+    // STORY: FPMAPP-8916 - Find currency rate by currency code and exact rate date
+    Optional<CurrencyRate> findByCurrencyCodeAndRateDate(String currencyCode, LocalDateTime rateDate);
 
-    // STORY: FPMAPP-8916 - Find latest rate for currency
-    @Query("SELECT cr FROM CurrencyRate cr WHERE cr.currencyCode = :currencyCode AND cr.rateDate = (SELECT MAX(cr2.rateDate) FROM CurrencyRate cr2 WHERE cr2.currencyCode = :currencyCode)")
-    Optional<CurrencyRate> findTopByCurrencyCodeOrderByRateDateDesc(@Param("currencyCode") String currencyCode);
+    // STORY: FPMAPP-8916 - Find all currency rates for a currency code between dates
+    List<CurrencyRate> findByCurrencyCodeAndRateDateBetweenOrderByRateDateAsc(String currencyCode, LocalDateTime startDate, LocalDateTime endDate);
 
+    // STORY: FPMAPP-8916 - Find latest rate date for a currency
+    @Query("SELECT MAX(cr.rateDate) FROM CurrencyRate cr WHERE cr.currencyCode = :currencyCode")
+    LocalDateTime findLatestRateDate(@Param("currencyCode") String currencyCode);
 }

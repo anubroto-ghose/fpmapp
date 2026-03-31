@@ -35,7 +35,7 @@ public class CurrencyRate {
     @Column(name = "override_at")
     private LocalDateTime overrideAt;
 
-    // STORY: FPMAPP-8916 - Entity to store currency rates with historical data and override info
+    // STORY: FPMAPP-8916 - Entity to store currency exchange rates with historical data and override info
 
     public CurrencyRate() {
     }
@@ -45,8 +45,6 @@ public class CurrencyRate {
         this.rateDate = rateDate;
         this.exchangeRate = exchangeRate;
     }
-
-    // Getters and setters
 
     public Long getId() {
         return id;

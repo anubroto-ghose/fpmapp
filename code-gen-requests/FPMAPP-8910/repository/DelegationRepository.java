@@ -11,10 +11,10 @@ import java.util.List;
 @Repository
 public interface DelegationRepository extends JpaRepository<Delegation, Long> {
 
-    // STORY: FPMAPP-8910 - Find active delegations for an approver at a given time
-    List<Delegation> findByApproverAndStartTimeLessThanEqualAndEndTimeGreaterThanEqual(User approver, LocalDateTime now1, LocalDateTime now2);
+    // STORY: FPMAPP-8910 - Find active delegations for an approver
+    List<Delegation> findByApproverAndStartDateLessThanEqualAndEndDateGreaterThanEqual(User approver, LocalDateTime now1, LocalDateTime now2);
 
-    // STORY: FPMAPP-8910 - Find active delegations for a delegate at a given time
-    List<Delegation> findByDelegateAndStartTimeLessThanEqualAndEndTimeGreaterThanEqual(User delegate, LocalDateTime now1, LocalDateTime now2);
+    // STORY: FPMAPP-8910 - Find active delegations for a delegate user
+    List<Delegation> findByDelegateUserAndStartDateLessThanEqualAndEndDateGreaterThanEqual(User delegateUser, LocalDateTime now1, LocalDateTime now2);
 
 }

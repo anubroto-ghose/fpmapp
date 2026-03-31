@@ -5,9 +5,9 @@ import com.fpm.model.ApprovalRequest;
 
 public interface ApprovalService {
 
-    // STORY: FPMAPP-8909 - Enforce hierarchical role-based approval workflow
-    ApprovalRequest processApprovalAction(ApprovalActionRequest actionRequest) throws Exception;
+    // STORY: FPMAPP-8909 - Method to process approval action with role-based validation
+    ApprovalRequest processApprovalAction(ApprovalActionRequest approvalActionRequest) throws Exception;
 
-    // STORY: FPMAPP-8909 - Retrieve approval request with current approver role and status
-    ApprovalRequest getApprovalRequestById(Long id) throws Exception;
+    // STORY: FPMAPP-8909 - Method to determine initial approver role based on request value
+    String determineInitialApproverRole(java.math.BigDecimal requestValue);
 }

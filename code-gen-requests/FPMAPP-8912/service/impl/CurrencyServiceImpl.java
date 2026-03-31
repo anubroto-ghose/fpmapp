@@ -1,6 +1,6 @@
 package com.fpm.service.impl;
 
-import com.fpm.dto.CurrencyRateDto;
+import com.fpm.dto.CurrencyRateResponseDTO;
 import com.fpm.model.CurrencyRate;
 import com.fpm.repository.CurrencyRateRepository;
 import com.fpm.service.CurrencyService;
@@ -14,8 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
 @Service
 public class CurrencyServiceImpl implements CurrencyService {
@@ -24,92 +25,126 @@ public class CurrencyServiceImpl implements CurrencyService {
 
     private final CurrencyRateRepository currencyRateRepository;
 
-    @Value("${currency.api.url}")
-    private String currencyApiUrl;
+    // TODO: Inject your third-party currency API client here
+    // private final CurrencyApiClient currencyApiClient;
 
-    // TODO: Inject RestTemplate or WebClient for API calls
+    @Value("${currency.fetch.interval.millis:3600000}")
+    private long fetchIntervalMillis;
 
     public CurrencyServiceImpl(CurrencyRateRepository currencyRateRepository) {
         this.currencyRateRepository = currencyRateRepository;
     }
 
-    // STORY: FPMAPP-8912 - Scheduled fetch of real-time currency rates
-    @Scheduled(fixedDelayString = "${currency.fetch.interval.ms:3600000}") // default 1 hour
-    @Transactional
+    @PostConstruct
+    public void init() {
+        // STORY: FPMAPP-8912 - Initial fetch of real-time currency rates on startup
+        fetchAndStoreRealTimeRates();
+    }
+
+    @Override
+    @Scheduled(fixedDelayString = "${currency.fetch.interval.millis:3600000}")
     public void fetchAndStoreRealTimeRates() {
+        // STORY: FPMAPP-8912 - Scheduled fetch and store real-time currency rates
         logger.info("Fetching real-time currency rates from third-party API");
 
-        // TODO: Implement actual API call to fetch rates
-        // For demo, simulate fetching USD and EUR rates
+        // TODO: Implement actual call to third-party API to fetch rates
+        // Example placeholder data:
+        List<CurrencyRate> fetchedRates = new ArrayList<>();
 
+        // TODO: Replace with real API call and parsing
+        // For example, assume we get a map of currencyCode -> rate
+        // Map<String, BigDecimal> ratesFromApi = currencyApiClient.getLatestRates();
+
+        // Simulated example for USD and EUR
         LocalDateTime now = LocalDateTime.now();
+        fetchedRates.add(createCurrencyRate("USD", new BigDecimal("1.000000"), now, false, false, null));
+        fetchedRates.add(createCurrencyRate("EUR", new BigDecimal("0.920000"), now, false, false, null));
 
-        // Simulated data
-        saveOrUpdateRate("USD", new BigDecimal("1.00"), now, false, false, null);
-        saveOrUpdateRate("EUR", new BigDecimal("0.85"), now, false, false, null);
+        for (CurrencyRate rate : fetchedRates) {
+            // Save only if no admin override exists for this timestamp and currency
+            Optional<CurrencyRate> existing = currencyRateRepository.findByCurrencyCodeAndRateTimestamp(rate.getCurrencyCode(), rate.getRateTimestamp());
+            if (existing.isEmpty()) {
+                currencyRateRepository.save(rate);
+            } else {
+                logger.debug("Rate for {} at {} already exists, skipping save", rate.getCurrencyCode(), rate.getRateTimestamp());
+            }
+        }
 
-        // TODO: Fetch all supported currencies and save
+        logger.info("Completed fetching and storing real-time currency rates");
     }
 
-    private void saveOrUpdateRate(String currencyCode, BigDecimal rate, LocalDateTime timestamp, boolean isHistorical, boolean adminOverrideFlag, String overrideReason) {
-        CurrencyRate currencyRate = new CurrencyRate();
-        currencyRate.setCurrencyCode(currencyCode);
-        currencyRate.setRate(rate);
-        currencyRate.setRateTimestamp(timestamp);
-        currencyRate.setHistorical(isHistorical);
-        currencyRate.setAdminOverrideFlag(adminOverrideFlag);
-        currencyRate.setOverrideReason(overrideReason);
-
-        currencyRateRepository.save(currencyRate);
+    private CurrencyRate createCurrencyRate(String currencyCode, BigDecimal rate, LocalDateTime timestamp, boolean isHistorical, boolean adminOverrideFlag, String overrideReason) {
+        CurrencyRate cr = new CurrencyRate();
+        cr.setCurrencyCode(currencyCode);
+        cr.setRate(rate);
+        cr.setRateTimestamp(timestamp);
+        cr.setHistorical(isHistorical);
+        cr.setAdminOverrideFlag(adminOverrideFlag);
+        cr.setOverrideReason(overrideReason);
+        return cr;
     }
 
-    // STORY: FPMAPP-8912 - Get latest currency rate DTO
-    @Transactional(readOnly = true)
-    public CurrencyRateDto getLatestRate(String currencyCode) {
-        return currencyRateRepository.findTopByCurrencyCodeOrderByRateTimestampDesc(currencyCode)
-                .map(this::toDto)
-                .orElse(null);
+    @Override
+    public CurrencyRateResponseDTO getLatestRate(String currencyCode) {
+        // STORY: FPMAPP-8912 - Retrieve latest currency rate with override status and timestamps
+        Optional<CurrencyRate> latestOpt = currencyRateRepository.findTopByCurrencyCodeOrderByRateTimestampDesc(currencyCode);
+        if (latestOpt.isEmpty()) {
+            return null; // TODO: Consider throwing custom exception or returning Optional
+        }
+        CurrencyRate rate = latestOpt.get();
+        return mapToDto(rate);
     }
 
-    // STORY: FPMAPP-8912 - Get historical currency rates DTO list
-    @Transactional(readOnly = true)
-    public List<CurrencyRateDto> getHistoricalRates(String currencyCode, LocalDateTime start, LocalDateTime end) {
-        List<CurrencyRate> rates = currencyRateRepository.findByCurrencyCodeAndRateTimestampBetweenOrderByRateTimestampAsc(currencyCode, start, end);
-        return rates.stream().map(this::toDto).collect(Collectors.toList());
+    @Override
+    public List<CurrencyRateResponseDTO> getHistoricalRates(String currencyCode, LocalDateTime start, LocalDateTime end) {
+        // STORY: FPMAPP-8912 - Retrieve historical currency rates between dates
+        List<CurrencyRate> rates = currencyRateRepository.findHistoricalRatesBetween(currencyCode, start, end);
+        List<CurrencyRateResponseDTO> dtos = new ArrayList<>();
+        for (CurrencyRate rate : rates) {
+            dtos.add(mapToDto(rate));
+        }
+        return dtos;
     }
 
-    // STORY: FPMAPP-8912 - Admin override currency rate
+    @Override
     @Transactional
-    public CurrencyRateDto overrideCurrencyRate(String currencyCode, double rate, LocalDateTime rateTimestamp, String overrideReason) {
+    public CurrencyRateResponseDTO overrideCurrencyRate(String currencyCode, BigDecimal newRate, LocalDateTime rateTimestamp, String overrideReason) {
+        // STORY: FPMAPP-8912 - Admin override of currency rate with reason and alerting
+
         // Validate inputs
         if (overrideReason == null || overrideReason.isBlank()) {
             throw new IllegalArgumentException("Override reason must be provided");
         }
 
-        CurrencyRate overriddenRate = new CurrencyRate();
-        overriddenRate.setCurrencyCode(currencyCode);
-        overriddenRate.setRate(BigDecimal.valueOf(rate));
-        overriddenRate.setRateTimestamp(rateTimestamp);
-        overriddenRate.setHistorical(false); // overrides are current
-        overriddenRate.setAdminOverrideFlag(true);
-        overriddenRate.setOverrideReason(overrideReason);
+        // Find existing rate for the timestamp or create new
+        Optional<CurrencyRate> existingOpt = currencyRateRepository.findByCurrencyCodeAndRateTimestamp(currencyCode, rateTimestamp);
+        CurrencyRate rate;
+        if (existingOpt.isPresent()) {
+            rate = existingOpt.get();
+            rate.setRate(newRate);
+            rate.setAdminOverrideFlag(true);
+            rate.setOverrideReason(overrideReason);
+            rate.setHistorical(false); // Overrides are current
+        } else {
+            rate = createCurrencyRate(currencyCode, newRate, rateTimestamp, false, true, overrideReason);
+        }
 
-        currencyRateRepository.save(overriddenRate);
+        CurrencyRate saved = currencyRateRepository.save(rate);
 
-        // TODO: Trigger alert/notification for override
+        // TODO: Trigger alert/notification about override (e.g. email, message queue)
         logger.warn("Currency rate overridden for {} at {} with reason: {}", currencyCode, rateTimestamp, overrideReason);
 
-        return toDto(overriddenRate);
+        return mapToDto(saved);
     }
 
-    private CurrencyRateDto toDto(CurrencyRate entity) {
-        CurrencyRateDto dto = new CurrencyRateDto();
-        dto.setCurrencyCode(entity.getCurrencyCode());
-        dto.setRate(entity.getRate());
-        dto.setRateTimestamp(entity.getRateTimestamp());
-        dto.setHistorical(entity.isHistorical());
-        dto.setAdminOverrideFlag(entity.isAdminOverrideFlag());
-        dto.setOverrideReason(entity.getOverrideReason());
+    private CurrencyRateResponseDTO mapToDto(CurrencyRate rate) {
+        CurrencyRateResponseDTO dto = new CurrencyRateResponseDTO();
+        dto.setCurrencyCode(rate.getCurrencyCode());
+        dto.setRate(rate.getRate());
+        dto.setRateTimestamp(rate.getRateTimestamp());
+        dto.setHistorical(rate.isHistorical());
+        dto.setAdminOverrideFlag(rate.isAdminOverrideFlag());
+        dto.setOverrideReason(rate.getOverrideReason());
         return dto;
     }
 

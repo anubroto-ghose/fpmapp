@@ -20,15 +20,15 @@ public class ApprovalAuditServiceImpl implements ApprovalAuditService {
 
     @Override
     @Transactional
-    // STORY: FPMAPP-8911 - Log approval, rejection, delegation, override actions immutably
-    public void logApprovalAction(Long approvalRequestId, String userId, String actionType, String comments) {
-        // TODO: Implement encryption of comments if required
+    // STORY: FPMAPP-8911 - Persist audit log entry for approval actions
+    public void logAction(Long approvalRequestId, String userId, String actionType, String comments) {
         AuditLog auditLog = new AuditLog(approvalRequestId, userId, actionType, comments, LocalDateTime.now());
+        // TODO: Encrypt sensitive fields if required before saving
         auditLogRepository.save(auditLog);
     }
 
     @Override
-    // STORY: FPMAPP-8911 - Retrieve audit logs for a given approval request
+    // STORY: FPMAPP-8911 - Retrieve audit logs for UI display and API responses
     public List<AuditLog> getAuditLogsForApprovalRequest(Long approvalRequestId) {
         return auditLogRepository.findByApprovalRequestIdOrderByActionTimestampAsc(approvalRequestId);
     }

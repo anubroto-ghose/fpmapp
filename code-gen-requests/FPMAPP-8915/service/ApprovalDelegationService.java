@@ -1,25 +1,21 @@
 package com.fpm.service;
 
+import com.fpm.dto.ApprovalDelegationDto;
 import com.fpm.model.ApprovalDelegation;
 import java.util.List;
-import java.util.Optional;
 
 public interface ApprovalDelegationService {
 
-    // STORY: FPMAPP-8915 - Service interface for approval delegation management
+    // STORY: FPMAPP-8915 - Delegate approval rights to another user with permissions
+    ApprovalDelegation delegateApproval(Long delegatorUserId, ApprovalDelegationDto delegationDto);
 
-    ApprovalDelegation createDelegation(ApprovalDelegation delegation);
+    // STORY: FPMAPP-8915 - Revoke or modify delegation permissions
+    ApprovalDelegation updateDelegation(Long delegatorUserId, Long delegationId, ApprovalDelegationDto delegationDto);
 
-    Optional<ApprovalDelegation> getDelegationById(Long id);
+    // STORY: FPMAPP-8915 - Revoke delegation by marking inactive
+    void revokeDelegation(Long delegatorUserId, Long delegationId);
 
-    List<ApprovalDelegation> getActiveDelegationsByDelegator(Long delegatorUserId);
-
-    List<ApprovalDelegation> getActiveDelegationsByDelegatee(Long delegateeUserId);
-
-    ApprovalDelegation updateDelegation(ApprovalDelegation delegation);
-
-    void revokeDelegation(Long delegationId, Long revokedByUserId);
-
-    boolean isUserDelegateeWithPermission(Long delegateeUserId, String permission);
+    // STORY: FPMAPP-8915 - Retrieve active delegations for a user
+    List<ApprovalDelegation> getActiveDelegationsForUser(Long userId);
 
 }

@@ -15,9 +15,9 @@ public class AuditLog {
     private Long requestId;
 
     @Column(name = "user_id", nullable = false)
-    private Long userId;
+    private String userId;
 
-    @Column(name = "action_type", nullable = false, length = 50)
+    @Column(name = "action_type", nullable = false)
     private String actionType; // e.g. APPROVAL_DECISION, DELEGATION_ACTION, REQUEST_CHANGE
 
     @Column(name = "action_details", columnDefinition = "TEXT", nullable = false)
@@ -27,14 +27,14 @@ public class AuditLog {
     private LocalDateTime timestamp;
 
     @Column(name = "immutable", nullable = false)
-    private boolean immutable = true; // STORY: FPMAPP-8918 - mark audit logs as immutable
+    private boolean immutable = true; // STORY: FPMAPP-8918 - Ensure immutability flag
 
-    // STORY: FPMAPP-8918 - default constructor
+    // STORY: FPMAPP-8918 - Default constructor
     public AuditLog() {
     }
 
-    // STORY: FPMAPP-8918 - constructor with all fields except id
-    public AuditLog(Long requestId, Long userId, String actionType, String actionDetails, LocalDateTime timestamp) {
+    // STORY: FPMAPP-8918 - Constructor with fields
+    public AuditLog(Long requestId, String userId, String actionType, String actionDetails, LocalDateTime timestamp) {
         this.requestId = requestId;
         this.userId = userId;
         this.actionType = actionType;
@@ -57,11 +57,11 @@ public class AuditLog {
         this.requestId = requestId;
     }
 
-    public Long getUserId() {
+    public String getUserId() {
         return userId;
     }
 
-    public void setUserId(Long userId) {
+    public void setUserId(String userId) {
         this.userId = userId;
     }
 
